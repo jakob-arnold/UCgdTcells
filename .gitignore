@@ -58,7 +58,6 @@ purl.R
 meta.data.txt
 /data_processed/
 /data_raw/
-*.png
 **/genesets/
 
 
