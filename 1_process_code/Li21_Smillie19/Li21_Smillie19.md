@@ -1,6 +1,16 @@
 Integrated Datasets (Li 2021, Smillie 2019)
 ================
 
+``` r
+library(Seurat)
+library(SCpubr)
+library(scCustomize)
+library(harmony)
+library(Matrix)
+library(tidyverse)
+library(data.table)
+```
+
 # Li 2021
 
 Reading in Data
@@ -84,6 +94,25 @@ rm(list=c("non.mt.genes", "non.ribo.genes"))
 ## Clustering
 
 ``` r
+data_li <- data_li%>%SCTransform()%>%RunPCA()%>%
+  FindNeighbors(dims=1:30)%>%FindClusters()%>%RunUMAP(dims=1:30)
+```
+
+    ## Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
+    ## 
+    ## Number of nodes: 44940
+    ## Number of edges: 1594030
+    ## 
+    ## Running Louvain algorithm...
+    ## Maximum modularity in 10 random starts: 0.9290
+    ## Number of communities: 30
+    ## Elapsed time: 4 seconds
+
+    ## Warning: The default method for RunUMAP has changed from calling Python UMAP via reticulate to the R-native UWOT using the cosine metric
+    ## To use Python UMAP via reticulate, set umap.method to 'umap-learn' and metric to 'correlation'
+    ## This message will be shown once per session
+
+``` r
 do_DimPlot(data_li, group.by = "seurat_clusters", label=T)&NoLegend()
 ```
 
@@ -100,12 +129,12 @@ FeaturePlot_scCustom(data_li, features = c("EPCAM", "PTPRC", "CD3E", "TRDC"))&
 
 ``` r
 ep_li <- subset(data_li, subset=seurat_clusters %in% c(
-  "0", "10", "15", "17", "18", "22", "26"
-))
+  "3", "6", "11", "12", "14", "22", "29")
+  )
 
-gd_li <- subset(data_li, subset=TRDC>1 & seurat_clusters %in% c(
-  "3", "5", "7", "8", "9", "12", "14"
-))
+gd_li <- subset(data_li, subset=TRDC>0 & seurat_clusters %in% c(
+  "1", "2", "4", "7", "17", "19", "21")
+  )
 ```
 
 ``` r
@@ -208,6 +237,22 @@ imm <- subset(imm, subset = nFeature_RNA > 200 & nFeature_RNA < 3000 &
 ```
 
 ``` r
+imm <- imm%>%SCTransform(conserve.memory=T)%>%RunPCA()%>%
+  FindNeighbors(dims=1:30)%>%FindClusters(resolution =1.5)%>%RunUMAP(dims=1:30)
+```
+
+    ##   |                                                                              |                                                                      |   0%  |                                                                              |======                                                                |   8%  |                                                                              |============                                                          |  17%  |                                                                              |==================                                                    |  25%  |                                                                              |=======================                                               |  33%  |                                                                              |=============================                                         |  42%  |                                                                              |===================================                                   |  50%  |                                                                              |=========================================                             |  58%  |                                                                              |===============================================                       |  67%  |                                                                              |====================================================                  |  75%  |                                                                              |==========================================================            |  83%  |                                                                              |================================================================      |  92%  |                                                                              |======================================================================| 100%
+    ## Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
+    ## 
+    ## Number of nodes: 204918
+    ## Number of edges: 6768474
+    ## 
+    ## Running Louvain algorithm...
+    ## Maximum modularity in 10 random starts: 0.9222
+    ## Number of communities: 77
+    ## Elapsed time: 67 seconds
+
+``` r
 do_DimPlot(imm, group.by="seurat_clusters", label=T, pt.size=.1)&NoLegend()
 ```
 
@@ -220,8 +265,8 @@ FeaturePlot_scCustom(imm, features=c("CD3E", "TRDC"))&NoAxes()&NoLegend()
 ![](Li21_Smillie19_files/figure-gfm/unnamed-chunk-18-2.png)<!-- -->
 
 ``` r
-gd_sm <- subset(imm, subset=TRDC>1 & seurat_clusters %in% c(
-  "2", "18", "37", "44", "23", "36", "0", "46", "16", "5", "6", "7", "30", "29"
+gd_sm <- subset(imm, subset=TRDC>0 & seurat_clusters %in% c(
+ "0", "1", "3", "4", "6", "9", "16", "24","25", "28", "30", "34", "38", "41", "53"
 ))
 ```
 
@@ -252,15 +297,15 @@ gd_sm@meta.data <- gd_sm@meta.data%>%
 gd_sm <- subset(gd_sm, subset=disease!="SC")
 ```
 
-``` r
-# Downsample
-gd_sm <- SetIdent(gd_sm, value="all")
-gd_sm <- subset(gd_sm, downsample=844)
-```
-
 ### Integtration
 
 ``` r
+gd_li@assays$SCT <- NULL
+DefaultAssay(gd_li) <- "RNA"
+gd_sm@assays$SCT <- NULL
+DefaultAssay(gd_sm) <- "RNA"
+
+
 # Only use genes that appear in both datasets
 genes <- intersect(rownames(gd_li), rownames(gd_sm))
 
@@ -271,10 +316,25 @@ rm(list=c("genes", "gd_li", "gd_sm"))
 ```
 
 ``` r
+# Downsample to max. 100 cells/donor
+gd <- SetIdent(gd, value="diseaseID")
+gd <- subset(gd, downsample=100)
+```
+
+``` r
+gd <- gd%>%SCTransform()%>%RunPCA()%>%RunUMAP(dims=1:30)
+```
+
+``` r
 do_DimPlot(gd, group.by = "cohort")
 ```
 
 ![](Li21_Smillie19_files/figure-gfm/unnamed-chunk-25-1.png)<!-- -->
+
+``` r
+# Integration
+gd <- RunHarmony(gd, "cohort")
+```
 
 ``` r
 ElbowPlot(gd, 50, reduction = "harmony")
@@ -283,12 +343,28 @@ ElbowPlot(gd, 50, reduction = "harmony")
 ![](Li21_Smillie19_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
 
 ``` r
+gd <- gd%>%FindNeighbors(reduction="harmony", dims=1:30)%>%
+  FindClusters()%>%
+  RunUMAP(reduction = "harmony", dims=1:30)
+```
+
+    ## Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
+    ## 
+    ## Number of nodes: 2576
+    ## Number of edges: 108498
+    ## 
+    ## Running Louvain algorithm...
+    ## Maximum modularity in 10 random starts: 0.7783
+    ## Number of communities: 12
+    ## Elapsed time: 0 seconds
+
+``` r
 gd@meta.data <- gd@meta.data%>%
   mutate(cluster=paste0("C", seurat_clusters))
 ```
 
 ``` r
-do_DimPlot(gd, group.by = "cohort")
+do_DimPlot(gd, group.by="cohort")
 ```
 
 ![](Li21_Smillie19_files/figure-gfm/unnamed-chunk-30-1.png)<!-- -->
@@ -299,35 +375,101 @@ do_DimPlot(gd, group.by = "cohort")
 TRM_genes <- scan("genesets/TRM.txt", character(), quote = "")
 
 gd <- AddModuleScore(gd, features = list(TRM_genes),
-                     name = "TRM_signature")
+                     name = "TRM")
 ```
 
-    ## Warning: The following features are not present in the object: SNAP91, LILRP2,
-    ## WASH5P, GSG2, KRT85, LOC100507039, GPR25, DBH, C18orf1, LOC100128420, PPP1R2P9,
-    ## LOC100507525, LOC401431, C5orf62, RPPH1, C17orf46, RNU4-2, AIM1L, RNU2-2,
-    ## EFCAB4A, RN7SK, SOAT2, RN7SL2, MIR663, AMICA1, RN7SL1, ADC, LOC619207,
-    ## LOC100506860, KIAA0284, LOC100506985, LOC100128242, C13orf15, FAM134B,
-    ## LOC646329, GLT25D2, SLC7A5P1, not searching for symbol synonyms
+    ## Warning: The following features are not present in the object: CTTNBP2, SNAP91,
+    ## LILRP2, WASH5P, GSG2, KRT85, NR5A2, LOC100507039, L1CAM, DBH-AS1, GPR25, IL21,
+    ## DBH, C18orf1, RMRP, LOC100128420, PPP1R2P9, LOC100507525, LOC401431, C5orf62,
+    ## TDRD9, ETV1, DAB2IP, VSTM2L, RPPH1, C17orf46, RNU4-2, LZTS1, AIM1L, RNU2-2,
+    ## CALY, KCNQ3, DDIT4L, EFCAB4A, ILDR2, RN7SK, TPPP, SOAT2, RN7SL2, CCDC89, HLF,
+    ## MIR663, AMICA1, RN7SL1, ADC, OTOF, LOC619207, LOC100506860, GLI1, NCS1, PTPN13,
+    ## MAMLD1, MEGF6, KIAA0284, LOC100506985, FBXO10, BUB1B, CH25H, LOC100128242,
+    ## C13orf15, FAM134B, GPSM1, LOC646329, GLT25D2, SLC7A5P1, not searching for
+    ## symbol synonyms
 
 ``` r
-cytokine_genes <- scan("genesets/cytokine.txt", character(),
-                       quote = "")
-cytotoxic_genes <- scan("genesets/cytotoxic.txt", character(),
-                        quote = "")
+cytokine_genes <- scan("genesets/cytokine.txt", character(),quote = "")
+cytotoxic_genes <- scan("genesets/cytotoxic.txt", character(),quote = "")
 
 cytokine_cytotoxic_genes <- c(cytokine_genes, cytotoxic_genes)
-cytokine_cytotoxic_genes <- base::unique(cytokine_cytotoxic_genes)
+cytokine_cytotoxic_genes <- unique(cytokine_cytotoxic_genes)
 
-gd <- AddModuleScore(gd, features = list(cytokine_cytotoxic_genes), 
-        name = "cytokine_cytotoxic_signature")
+gd <- AddModuleScore(gd, features=list(cytokine_cytotoxic_genes), name="cyto")
 ```
 
-    ## Warning: The following features are not present in the object: CCL3L3, IL9,
-    ## PLA2G16, ADGRG1, not searching for symbol synonyms
+    ## Warning: The following features are not present in the object: CCL3L3, TIMD4,
+    ## NCS1, RCAN2, IL9, PLA2G16, ADGRG1, not searching for symbol synonyms
 
 ``` r
-rm(list=c("cytokine_genes", "cytotoxic_genes",
-          "cytokine_cytotoxic_genes", "TRM_genes"))
+Vg4Vd1 <- read.csv("genesets/Vg4Vd1_vs_all.csv")%>%
+  filter(!gene %in% c("TRGV4", "TRDV1"))
+Vg4Vd1 <- Vg4Vd1$gene
+
+gd <- AddModuleScore(gd, features = list(Vg4Vd1),
+                     name="Vg4Vd1_")
+```
+
+    ## Warning: The following features are not present in the object: TRDJ1, TRGJ1,
+    ## FTLP3, YBX1P1, ENSG00000267364, YBX1P2, YBX1P10, PRR13P5, TENT5C, not searching
+    ## for symbol synonyms
+
+``` r
+Vg9Vd2 <- read.csv("genesets/Vg9Vd2_vs_all.csv")%>%
+  filter(!gene %in% c("TRGV9", "TRDV2"))
+Vg9Vd2 <- Vg9Vd2$gene
+
+gd <- AddModuleScore(gd, features = list(Vg9Vd2),
+                     name="Vg9Vd2_")
+```
+
+    ## Warning: The following features are not present in the object: HLA-U,
+    ## ENSG00000283041, ENSG00000289474, EEF1A1P5, VSIR, ENSG00000293050, LINC02084,
+    ## EEF1B2P3, HLA-W, TRDJ3, RPLP0P6, ENSG00000227615, RLIG1, ZZZ3, TRDJ4, RPSA2,
+    ## TRAJ39, HNRNPA1P7, HLA-J, not searching for symbol synonyms
+
+``` r
+stem_like_genes <- fread("genesets/CD8_StemLike_Markers.csv")%>%
+  pull(gene)
+
+gd <- AddModuleScore(gd, features = list(stem_like_genes),name="StemLike")
+```
+
+    ## Warning: The following features are not present in the object: RP5-1028K7.2,
+    ## TMEM155, NGFRAP1, ASCL1, TIMD4, ATP9A, BTNL9, PMCH, C16orf45, RP11-279F6.3,
+    ## PTK7, RP11-555F9.2, PTPN3, RP11-1399P15.1, CHGB, FAAH2, AC068196.1, PACSIN1,
+    ## C1orf228, FAIM3, TACSTD2, FXYD6, RGS4, TSHR, EPYC, RP11-222K16.2, MOXD1,
+    ## AC074289.1, FNDC9, ZNF704, AGAP1, GDF10, KB-1507C5.2, ATP8A2, F5, ETV1, NOD2,
+    ## LHFP, CCDC64, LPL, PRSS1, C14orf64, SELP, RP11-242J7.1, GTSF1L, NPBWR1, NBPF15,
+    ## RP4-728D4.2, NUDT10, BCAT1, ELOVL4, AC097713.4, ANKS1B, FLT1, ADORA2B, PTPN13,
+    ## RP11-265P11.2, RP11-620J15.3, DIRAS3, LIMS2, PLEKHA7, MT3, ENOX1, RP11-539I5.1,
+    ## AP001055.6, CLIP3, RP11-655C2.3, PPAP2C, KCNK1, AD000671.6, DIRAS2, DFNB31,
+    ## AC011893.3, AC011841.1, FAM201A, AF131217.1, CDK14, APBB2, CTD-2020K17.1,
+    ## BARX2, NR5A2, MYH10, RP11-455F5.5, HSF5, LRRC16B, EVI5, KIAA1644, DAB1,
+    ## RP11-145M9.4, TTC24, AC069363.1, MDS2, FAM110B, EBI3, DGCR5, FAM92A1,
+    ## RP11-61O1.2, FAM159A, C17orf96, GLDC, CAPN3, RP1-15D23.2, PON3, PSMD5-AS1,
+    ## CTHRC1, SSTR3, ADRBK2, NLGN4Y, C12orf79, RP11-73M14.1, AKR1C1, FAM78B,
+    ## RP11-371A19.2, MERTK, PHEX, JAM2, RP11-796G6.2, LDOC1L, WBP5, RP11-431M7.3,
+    ## CD80, FAM65B, PHKA1, ZACN, SHC4, GPR128, OGN, CTA-293F17.1, STAC, KB-173C10.2,
+    ## DOK5, FBXO27, SLC28A3, RP11-18H21.1, KIAA0391, BTBD11, CYP7B1, RP11-215G15.5,
+    ## FAM153A, AP000476.1, RP11-223C24.1, LIPC, ESPL1, MCTP1, MAPT, SCIMP, LMCD1,
+    ## RBM11, CXXC11, FAM115A, LINC00925, ZNF415, THNSL2, UBXN10-AS1, AC093609.1,
+    ## TMEM178B, FAIM2, ANKRD18A, FAM84B, NIPAL4, LCN10, AC006460.2, ESR1, RGS6,
+    ## AKAP2, RP3-400N23.6, AC010226.4, TNS4, STXBP1, RP11-348F1.3, KB-173C10.1,
+    ## FLVCR2, ZNF69, MIR146A, IL21-AS1, AC074366.3, TLN2, LINC00158, NCAPG, L1CAM,
+    ## RP11-91I20.4, FAM115C, PLGLB2, MKL2, IKZF4, TBC1D8, TTTY15, RP11-426C22.5,
+    ## PNPLA7, RP11-11N9.4, RP11-117D22.2, LAMP3, RP11-493L12.5, KCNH3, MTMR8,
+    ## RP11-284N8.3, CTC-228N24.3, TMCC2, RP11-486L19.2, RP11-229C3.2, RP11-275I4.2,
+    ## IL10RB-AS1, ST6GALNAC3, CYP4F35P, DBNDD1, CTD-2336O2.1, NEIL3, TMEM55A, WHSC1,
+    ## IGJ, RP6-109B7.3, AC009784.3, PLS3, C3orf52, RP11-218M22.1, FBXO10, PCNXL2,
+    ## RP11-732M18.3, OR2A1-AS1, KDM7A, ADAMTS4, RP11-15A1.3, ANKRD22, DDX26B, C9orf3,
+    ## TIGD4, AC006129.1, CRYBG3, TMEM232, RP5-1043L13.1, LGR6, ST20, TUBB4A, LGALS9C,
+    ## E2F2, RP5-1007M22.2, CTD-3096M3.1, not searching for symbol synonyms
+
+``` r
+rm(list=c("cytokine_genes", "cytotoxic_genes","cytokine_cytotoxic_genes",
+          "TRM_genes", "Vg9Vd2", "Vg4Vd1", "stem_like_genes")
+   )
 ```
 
 ## EPCAM+ Cells
@@ -335,7 +477,7 @@ rm(list=c("cytokine_genes", "cytotoxic_genes",
 ``` r
 # Change meta data column names to match between datasets
 ep_li@meta.data <- ep_li@meta.data%>%
-  mutate(cohort="Chinese")
+  mutate(cohort="Li 2021")
 
 ep_sm@meta.data <- ep_sm@meta.data%>%
   rename(disease=Health, ID=Subject)%>%
@@ -344,7 +486,7 @@ ep_sm@meta.data <- ep_sm@meta.data%>%
     disease=="Inflamed" ~ "UC",
     disease=="Non-inflamed" ~ "SC"
     ),
-    cohort="US")%>%
+    cohort="Smillie 2019")%>%
   unite(diseaseID, disease, ID, sep="", remove=F)
 
 ep_sm <- subset(ep_sm, subset=disease!="SC")
@@ -353,6 +495,9 @@ ep_sm <- subset(ep_sm, subset=disease!="SC")
 ### Integration
 
 ``` r
+ep_li@assays$SCT <- NULL
+DefaultAssay(ep_li) <- "RNA"
+
 # Only use genes that appear in both datasets
 genes <- intersect(rownames(ep_li), rownames(ep_sm))
 
@@ -362,10 +507,19 @@ rm(list=c("genes", "ep_li", "ep_sm"))
 ```
 
 ``` r
+ep <- ep%>%SCTransform()%>%RunPCA()%>%RunUMAP(dims=1:30)
+```
+
+``` r
 do_DimPlot(ep, group.by="cohort", pt.size=.2)
 ```
 
 ![](Li21_Smillie19_files/figure-gfm/unnamed-chunk-35-1.png)<!-- -->
+
+``` r
+# Integration
+ep <- RunHarmony(ep, "cohort")
+```
 
 ``` r
 ElbowPlot(ep, reduction = "harmony", 50)
@@ -374,94 +528,125 @@ ElbowPlot(ep, reduction = "harmony", 50)
 ![](Li21_Smillie19_files/figure-gfm/unnamed-chunk-37-1.png)<!-- -->
 
 ``` r
-# Cell Numbers of CellTypes Per Cluster (annotation derived from
-# Smillie datasets) to perform label transfer (enterocytes)
-table(ep@meta.data$Cluster, ep@meta.data$seurat_clusters)
+ep <- ep%>%FindNeighbors(reduction="harmony", dims=1:40)%>%
+  FindClusters()%>%RunUMAP(reduction="harmony", dims=1:40)
 ```
 
-    ##                         
-    ##                             0    1    2    3    4    5    6    7    8    9   10
-    ##   Best4+ Enterocytes        9   10   18    8   29    4    0   18    3    2   49
-    ##   Cycling TA                6    1    4  258  309 3412   37    0 1908  208  711
-    ##   Enterocyte Progenitors 2268   85 1386  132  258    0    1  917    1  285   41
-    ##   Enterocytes               3 1688    3    0    0    0    0   74    0    4    0
-    ##   Enteroendocrine           6    1    8    9    9   15    0    0    2    0    4
-    ##   Goblet                    0  211    0    7    0    0   53    8    0    0    1
-    ##   Immature Enterocytes 1   38 3283  157  154    0    0    0   73    1   33    0
-    ##   Immature Enterocytes 2  470  682  286   54  172    0    0 1986    0   63  201
-    ##   Immature Goblet           1    0   17   27    0   16 2864    0    3    8   23
-    ##   M cells                   4    1    0    0    3    4    0    1    0    2    0
-    ##   Secretory TA             13    0    2    6   87  105   78    3    1    0  254
-    ##   Stem                     32    0    0    5  657   11    0    0    9    6   59
-    ##   TA 1                   3588   23 3359 2744  218   26  211  100 1299 1609  139
-    ##   TA 2                    675    0  105  191 2561  167    0   37   67   50  888
-    ##   Tuft                      2    4    4    2    4    0    0    2    5    0    0
-    ##                         
-    ##                            11   12   13   14   15   16   17   18   19   20   21
-    ##   Best4+ Enterocytes     1432   16    1    6    8   28    1    0    1    0   13
-    ##   Cycling TA               50  417   70  464   61    2  279    1  569    0    0
-    ##   Enterocyte Progenitors   29    5    0   50   90   51   38    1    0    0    0
-    ##   Enterocytes               2    0    0  102  124  259  313    0    0    0  230
-    ##   Enteroendocrine           3   12    3    2    3    1    1    1    3    0    0
-    ##   Goblet                    1    1  162    9    4   31   14  807    0    0    8
-    ##   Immature Enterocytes 1    6    0    0   26   79  260   52    0    0    0   51
-    ##   Immature Enterocytes 2    2    2    1  255  262  237   41    0    3    0  450
-    ##   Immature Goblet           0  106 1296    4    1    1    4   35   15    1    3
-    ##   M cells                   0    1    0  147    0    2    0    0    0    0    0
-    ##   Secretory TA              6 1479  235   34   30    5   68    0   69    3    8
-    ##   Stem                      7   11    0   94  128    1    5    0  136    1    0
-    ##   TA 1                     46   54   20   82   59  163   91   12   36    6    0
-    ##   TA 2                     30  189    0  519  518  180  136    0  210    0  149
-    ##   Tuft                      0    1    0    0    0    0    0    0    1  545    0
-    ##                         
-    ##                            22   23   24   25   26   27   28   29   30
-    ##   Best4+ Enterocytes        3    1    0    6    0    3    4    0    0
-    ##   Cycling TA              252  103   75  261  135  127  197    1    0
-    ##   Enterocyte Progenitors    3    3    2    4    2   16    0    0   28
-    ##   Enterocytes               4   58    0   70    1    0    0    0    0
-    ##   Enteroendocrine           2    0    3    1    1    2    2  199    0
-    ##   Goblet                    0    2    7    5    0    0    0    0    0
-    ##   Immature Enterocytes 1    1   34    1   38    1    0    0    0    0
-    ##   Immature Enterocytes 2   84  151    1  135    2   35   10    0    2
-    ##   Immature Goblet           0    0  271    1    1    1    0    0    1
-    ##   M cells                   0    0    0    0    0    0    2    0    0
-    ##   Secretory TA             10    8   68    7    2   10   17    2    0
-    ##   Stem                      3   92    0    4    0   15   26    0    0
-    ##   TA 1                    135   10  164   21  142   69   56    5   95
-    ##   TA 2                    259  282    0  188   15  334  252    0    3
-    ##   Tuft                      1    0    2    0    0    0    0    0    0
+    ## Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
+    ## 
+    ## Number of nodes: 73701
+    ## Number of edges: 2561159
+    ## 
+    ## Running Louvain algorithm...
+    ## Maximum modularity in 10 random starts: 0.9077
+    ## Number of communities: 33
+    ## Elapsed time: 11 seconds
+
+``` r
+do_DimPlot(ep, group.by="cohort", pt.size=.2)
+```
+
+![](Li21_Smillie19_files/figure-gfm/unnamed-chunk-39-1.png)<!-- -->
+
+``` r
+do_DimPlot(ep, group.by="disease", pt.size=.2)
+```
+
+![](Li21_Smillie19_files/figure-gfm/unnamed-chunk-39-2.png)<!-- -->
+
+``` r
+# Cell Numbers of CellTypes Per Cluster (annotation derived from
+# Smillie datasets) to perform label transfer (enterocytes)
+
+ep@meta.data <- ep@meta.data%>%
+  mutate(enterocytes=case_when(
+    Cluster %in% c("Best4+ Enterocytes", "Enterocyte Progenitors", "Enterocytes",
+                   "Immature Enterocytes 1", "Immature Enterocytes 2") ~ "enterocytes",
+    is.na(Cluster) ~ "Li21",
+    .default = "other"
+  ))
+
+ep@meta.data%>%ggplot(aes(x=seurat_clusters, fill=enterocytes))+
+  geom_bar(position = "fill")+
+  theme_classic()
+```
+
+![](Li21_Smillie19_files/figure-gfm/unnamed-chunk-40-1.png)<!-- -->
 
 ``` r
 # Subsetting Enterocytes based on Clusters and downsampling
-ep <- SetIdent(ep, value="diseaseID")
-
 entero <- subset(ep, subset = seurat_clusters %in% c(
-  "0", "1", "7", "11", "16", "17", "21", "25"), downsample=500)
+  "0", "6", "9", "10", "13", "16", "18"))
 ```
+
+``` r
+summary(as.factor(entero@meta.data$diseaseID))
+```
+
+    ##    HD1    HD2    HD3    HD4  HDN10  HDN11  HDN13  HDN15  HDN16  HDN17  HDN18 
+    ##    335    452    805    814   1709   2049    280   1864   1027   1063    905 
+    ##  HDN20  HDN21  HDN46  HDN51   HDN8    UC1    UC2    UC3    UC4    UC5 UCN106 
+    ##    557   2364    376   1952    289    112     60    174    186    186     60 
+    ## UCN110 UCN111  UCN14  UCN19  UCN23  UCN24  UCN26  UCN44  UCN49  UCN50  UCN52 
+    ##    119    222    238    334    582    608    955    125     22      3     19 
+    ## UCN539  UCN58   UCN7   UCN9 
+    ##     28    276     59    193
+
+``` r
+entero <- SetIdent(entero, value="diseaseID")
+entero <- subset(entero, downsample=500)
+```
+
+``` r
+entero <- entero%>%SCTransform()%>%RunPCA()%>%RunHarmony("cohort")
+```
+
+    ## Warning: Different cells and/or features from existing assay SCT
 
 ``` r
 ElbowPlot(entero, reduction="harmony", 50)
 ```
 
-![](Li21_Smillie19_files/figure-gfm/unnamed-chunk-42-1.png)<!-- -->
+![](Li21_Smillie19_files/figure-gfm/unnamed-chunk-45-1.png)<!-- -->
+
+``` r
+entero <- entero%>%FindNeighbors(reduction="harmony",dims=1:30)%>%
+  FindClusters()%>%RunUMAP(reduction="harmony", dims=1:30)
+```
+
+    ## Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
+    ## 
+    ## Number of nodes: 11148
+    ## Number of edges: 399732
+    ## 
+    ## Running Louvain algorithm...
+    ## Maximum modularity in 10 random starts: 0.8576
+    ## Number of communities: 17
+    ## Elapsed time: 0 seconds
 
 ``` r
 do_DimPlot(entero, group.by="disease")
 ```
 
-![](Li21_Smillie19_files/figure-gfm/unnamed-chunk-44-1.png)<!-- -->
+![](Li21_Smillie19_files/figure-gfm/unnamed-chunk-47-1.png)<!-- -->
+
+``` r
+do_DimPlot(entero, group.by="cohort")
+```
+
+![](Li21_Smillie19_files/figure-gfm/unnamed-chunk-47-2.png)<!-- -->
 
 # Save Seurat Object as Rds files
 
 ``` r
-# remove uninteresting meta data columns
-ep@meta.data <- ep@meta.data%>%select(
-  -RNA_snn_res.0.8, -orig.ident, -Cluster, -nGene, -nUMI, -Location, -Sample)
-
-gd@meta.data <- gd@meta.data%>%select(
-  -RNA_snn_res.0.8, -RNA_snn_res.0.25, -RNA_snn_res.1.5, -orig.ident, -Cluster,
-  -nGene, -nUMI, -Location, -Sample)%>%
-  head()
+# # remove uninteresting meta data columns
+# entero@meta.data <- entero@meta.data%>%select(
+#   -RNA_snn_res.0.8, -orig.ident, -Cluster, -nGene, -nUMI, -Location, -Sample)
+# 
+# gd@meta.data <- gd@meta.data%>%select(
+#   -RNA_snn_res.0.8, -RNA_snn_res.0.25, -RNA_snn_res.1.5, -orig.ident, -Cluster,
+#   -nGene, -nUMI, -Location, -Sample)%>%
+#   head()
 ```
 
 ``` r
@@ -501,7 +686,7 @@ sessionInfo()
     ## other attached packages:
     ##  [1] data.table_1.15.4  lubridate_1.9.3    forcats_1.0.0      stringr_1.5.1     
     ##  [5] dplyr_1.1.4        purrr_1.0.2        readr_2.1.5        tidyr_1.3.1       
-    ##  [9] tibble_3.2.1       ggplot2_3.4.4      tidyverse_2.0.0    Matrix_1.6-5      
+    ##  [9] tibble_3.2.1       ggplot2_3.5.1      tidyverse_2.0.0    Matrix_1.6-5      
     ## [13] harmony_1.2.0      Rcpp_1.0.12        scCustomize_2.1.2  SCpubr_2.0.2      
     ## [17] Seurat_5.1.0       SeuratObject_5.0.2 sp_2.1-4          
     ## 
