@@ -4,6 +4,8 @@ library(SCpubr)
 library(scCustomize)
 library(tidyverse)
 library(scRepertoire)
+library(ReactomePA)
+library(enrichplot)
 library(circlize)
 library(patchwork)
 library(ggpubr)
@@ -11,11 +13,13 @@ library(rstatix)
 library(SCENIC)
 library(AUCell)
 library(paletteer)
+library(scales)
 
 
 ##-----------------------------------------------------------------------------
 gd <- readRDS("../../data_processed/FLASHseq/gd.Rds")
 Idents(gd) <- "cluster"
+
 
 ##-----------------------------------------------------------------------------
 pal_seur <- c("0"="#4682B4", "1"="#AF46B4", "2"="#B47846", "3"="#4BB446")
@@ -23,11 +27,12 @@ pal_clust <- c("C0"="#4682B4", "C1"="#AF46B4", "C2"="#B47846", "C3"="#4BB446")
 pal_dis <- c("control"="#008B8B","UC"="#8B0000")
 
 
-
 # Med2 Retreat Poster
-## Fig2
+
+## Figure 2
 
 A
+
 ##-----------------------------------------------------------------------------
 A <- do_DimPlot(gd, label = T, group.by = "seurat_clusters", label.size = 4,
                  pt.size = 1.5, legend.position = "none", colors.use=pal_seur)+
@@ -42,6 +47,7 @@ A <- A[[1]]
 
 
 B
+
 ##-----------------------------------------------------------------------------
 B <-do_DimPlot(gd, group.by = "disease", pt.size = 1.5, colors.use=pal_dis)+
   theme(legend.position = c(0.33, .097), legend.background = element_blank(),
@@ -52,6 +58,7 @@ B <- B[[1]]
 
 
 C
+
 ##-----------------------------------------------------------------------------
 # test <- gd@meta.data%>%wilcox_test(cytokine_cytotoxic_signature1~cluster)%>%
 #   mutate(xmin = c(1, 1, 1, 2.05, 2, 3.05),
@@ -79,7 +86,9 @@ C <- VlnPlot_scCustom(gd, features = "cytokine_cytotoxic_signature1",
 
 C[[1]][["layers"]][[1]][["stat_params"]][["trim"]] <- FALSE
 
+
 D
+
 ##-----------------------------------------------------------------------------
 # test <- gd@meta.data%>%wilcox_test(TRM_signature1~seurat_clusters)%>%
 #   mutate(xmin = c(1, 1, 1, 2.05, 2, 3.05),
@@ -107,6 +116,7 @@ D[[1]][["layers"]][[1]][["stat_params"]][["trim"]] <- FALSE
 
 
 E
+
 ##-----------------------------------------------------------------------------
 gd <- SetIdent(gd, value="cluster")
 
@@ -153,7 +163,9 @@ E_1 <- ggplot(meta, aes(x=cluster, fill=disease))+
 E <- E/E_1+
   plot_layout(heights = c(1, 0.05))
 
+
 F
+
 ##-----------------------------------------------------------------------------
 clonotypes_percent <- gd@meta.data %>%
   filter(!is.na(TRGV_TRDV))%>%
@@ -181,6 +193,7 @@ f <- ggplot(clonotypes_percent, aes(x=disease, y = TRGV4_TRDV1, fill=disease))+
 
 
 G
+
 ##-----------------------------------------------------------------------------
 G <- ggplot(clonotypes_percent, aes(x=disease, y = TRGV9_TRDV2, fill=disease))+
   geom_boxplot(outlier.shape = NA)+
@@ -197,6 +210,7 @@ G <- ggplot(clonotypes_percent, aes(x=disease, y = TRGV9_TRDV2, fill=disease))+
   )+
   labs(y="% of All Subsets", fill=element_blank())+
   NoLegend()+ggtitle("TRGV9-TRDV2")
+
 
 ##-----------------------------------------------------------------------------
 scores <- c("utz16_stem1","utz16_effector1")
@@ -221,6 +235,7 @@ H <- H + plot_annotation(title = "Gene Signatures from\nUtzschneider et al. 2016
 for (i in seq_along(H)){
   H[[i]][["layers"]][[1]][["stat_params"]][["trim"]] <- FALSE
 }
+
 
 ##-----------------------------------------------------------------------------
 gd@meta.data <- gd@meta.data%>%
@@ -253,7 +268,6 @@ E
 ggsave("../figures/FLASHseq_DotPlot_1.png", dpi=600, width=3.25, height=6.75)
 
 
-
 ##-----------------------------------------------------------------------------
 blank <- ggplot()+theme_void()
 
@@ -283,10 +297,8 @@ ABCDEFG
 ggsave("Poster_Med2_Fig2.png", dpi=600, bg="white", width = 14, height = 6.5)
 
 
-
-
-
 Cluster Marker
+
 ##-----------------------------------------------------------------------------
 gd <- SetIdent(gd, value="cluster")
 
@@ -308,8 +320,8 @@ c2_vs_c3_marker <- FindMarkers(gd_test, ident.1 = "C2", ident.2="C3")%>%
 write.csv(c2_vs_c3_marker, "../../genesets/FLASHseq_C2vC3_marker.cs")
 
 
-
 # SCENIC
+
 ##-----------------------------------------------------------------------------
 library(SCENIC)
 library(AUCell)
@@ -322,6 +334,7 @@ rss <- rss$df
 
 
 RSS DotPlot
+
 ##-----------------------------------------------------------------------------
 library(viridis)
 regulons <- c("TBX21", "EOMES", "PRDM1", "STAT1", "STAT5B",
@@ -354,7 +367,6 @@ ggsave("../figures/FLASHseq_SCENIC_byCLuster.png", dpi=600, bg="white",
        width =3.25, height = 5)
 
 
-
 ##-----------------------------------------------------------------------------
 scenic_mtx <- read.csv("../../data_processed/FLASHseq/pyscenic_output_hvg_jakob_no_ENSG_nes_2.8.csv")
 
@@ -378,12 +390,14 @@ DefaultAssay(gd) <- "scenic"
 gd <- ScaleData(gd)%>%RunPCA(features = rownames(gd), reduction.key = "scenic",
                              reduction.name="scenic_pca")
 
+
 ##-----------------------------------------------------------------------------
 ElbowPlot(gd, 50, reduction = "scenic_pca")
 
 
 ##-----------------------------------------------------------------------------
 gd <- RunUMAP(gd, dims=1:10, reduction.name = "umap_scenic", reduction.key = "SCENIC_UMAP", reduction = "scenic_pca")
+
 
 ##-----------------------------------------------------------------------------
 do_DimPlot(gd, group.by = "cluster",pt.size = 2, legend.position = "right",
@@ -401,7 +415,6 @@ ggsave("../figures/FLASHseq_SCENIC_UMAP_byDisease.png", dpi=600, width=6, height
 
 
 
-
 ##-----------------------------------------------------------------------------
 heat_scenic <- DotPlot_scCustom(gd, features = rev(regulons))
 heat_scenic <- heat_scenic$data
@@ -414,7 +427,6 @@ ggplot(heat_scenic, aes(x=id, y=features.plot, fill=avg.exp.scaled))+
   theme(panel.grid = element_blank(), axis.title = element_blank())
 ggsave("../figures/FLASHseq_SCENIC_Heatmap_Scaled.png", dpi=600, width=3,
        height=4.25, bg="white")
-
 
 
 ##-----------------------------------------------------------------------------
@@ -440,6 +452,7 @@ ggsave("../figures/FLASHseq_SCENIC_Heatmap_Zscore.png", dpi=600, width=2.5,
 
 
 # VDJ
+
 ##-----------------------------------------------------------------------------
 library(paletteer)
 pal_TR <- paletteer_d("ggsci::category10_d3")
@@ -479,6 +492,7 @@ ggplot(gd@meta.data, aes(x=disease, fill=TRGV))+
         legend.key.spacing.y = unit(1, "mm"), legend.margin=margin(l=-10))
 ggsave("../figures/FLASHseq_TRGV_by_Disease.png", dpi=600, width=2.75, height=4)
 
+
 ##-----------------------------------------------------------------------------
 names <- c("1"="TRGV2.TRGJ2.TRGC2;CDR3_13aa (TRDV NA)",
            "2"="TRDV2.TRDD3.TRDJ3.TRDC;CDR3_18aa (TRGV NA)",
@@ -497,63 +511,8 @@ ggsave("../figures/FLASHseq_UMAP_Clonotypes_Overlap_C2C3.png", dpi=600,
        width=5, height=5)
 
 
-# MA Plot
-##-----------------------------------------------------------------------------
-Idents(gd) <- "disease"
-
-UC_markers <- FindMarkers(gd, ident.1 = "UC")%>%
-  rownames_to_column("gene")
-
-geneLogSums <- log2(Matrix::rowMeans(GetAssayData(gd, "RNA", "counts")))
-geneLogSums <- as.data.frame(geneLogSums)%>%
-  rownames_to_column("gene")
-
-UC_markers <- inner_join(UC_markers, geneLogSums, by = "gene")%>%
-  mutate(signif = case_when(
-           p_val_adj < 0.05 & avg_log2FC > 0 ~ "up",
-           p_val_adj < 0.05 & avg_log2FC < 0 ~ "down",
-           .default = "ns"
-         ),
-         signif=factor(signif, levels = c("ns", "down", "up"))
-         )
-
-
-
-##-----------------------------------------------------------------------------
-genes_up <- c("TCF7", "IL7R","GZMK","CD5","CD27","CCR7","ZNF683","TNF",
-              "IFNG","EOMES","S1PR1","SELL","NKG7","GZMB","TBX21","KLRG1", "ITGB2", 
-              "PDCD1", "CTLA4", "LAG3")
-
-genes_down <- c("ITGAE","ITGA1","CD160","ID3")
-
-ggplot()+
-  geom_point(UC_markers%>%filter(signif == "ns"),
-             mapping=aes(x=geneLogSums, y=avg_log2FC, color=signif))+
-    geom_point(UC_markers%>%filter(signif != "ns"),
-             mapping=aes(x=geneLogSums, y=avg_log2FC, color=signif))+
-  theme_classic()+
-  geom_hline(yintercept=0, linetype="dashed", color="red", size=1)+
-  labs(x=expression("log"[2]*"(Mean Expression)"),
-       y=expression("log"[2]*"(Fold Change)"),
-       color=element_blank())+
-  scale_color_manual(values = c("gray", "#008B8B", "#8B0000"))+
-  guides(color = guide_legend(override.aes = list(size = 2), reverse=T))+
-  theme(axis.text = element_text(color="black"), text=element_text(size=16),
-        legend.position = c(0.15, 0.85))+
-  
-  ggrepel::geom_label_repel(data=UC_markers%>%filter(gene %in% genes_up), 
-                           aes(label = gene, x=geneLogSums, y=avg_log2FC),
-                           min.segment.length = 0, nudge_y = 0, nudge_x = 0,
-                           size = 3, max.overlaps=15)+
-  ggrepel::geom_label_repel(data=UC_markers%>%filter(gene %in% genes_down), 
-                           aes(label = gene, x=geneLogSums, y=avg_log2FC),
-                           min.segment.length = 0, nudge_y = -1, nudge_x = 0,
-                           size = 3)
-
-ggsave("../figures/FLASHseq_MA_Plot.png", dpi=600, width=5, height=5)
-
-
 # Stem-Like Heatmap
+
 ##-----------------------------------------------------------------------------
 library(biomaRt)
 human <- useMart("ensembl", dataset="hsapiens_gene_ensembl", 
@@ -592,6 +551,7 @@ h_eff <- DotPlot(gd, features=genes_eff, group.by="cluster")$data
 h_tf <- DotPlot(gd, features=genes_tf, group.by="cluster")$data
 h_mem <- DotPlot(gd, features=genes_mem, group.by="cluster")$data
 
+
 ##-----------------------------------------------------------------------------
 breaks_with_gap <- c(levels(h_cost$features.plot), "", levels(h_inh$features.plot))
 ggplot(full_join(h_cost, h_inh), aes(x=id, y=features.plot, fill=avg.exp.scaled))+
@@ -617,6 +577,7 @@ ggplot(full_join(h_eff, h_chemo), aes(x=id, y=features.plot, fill=avg.exp.scaled
   scale_y_discrete(limits = breaks_with_gap, labels = breaks_with_gap)
 ggsave("../figures/FLASHseq_HeatMap_2.png", dpi=600, width=2.35, height=4, bg="white")
 
+
 ##-----------------------------------------------------------------------------
 breaks_with_gap <- c(levels(h_mem$features.plot), "", levels(h_tf$features.plot))
 ggplot(full_join(h_mem, h_tf), aes(x=id, y=features.plot, fill=avg.exp.scaled))+
@@ -629,25 +590,12 @@ ggplot(full_join(h_mem, h_tf), aes(x=id, y=features.plot, fill=avg.exp.scaled))+
   scale_y_discrete(limits = breaks_with_gap, labels = breaks_with_gap)
 ggsave("../figures/FLASHseq_HeatMap_3.png", dpi=600, width=2.35, height=3.25, bg="white")
 
-# GSEA
-##-----------------------------------------------------------------------------
-library(ReactomePA)
-library(enrichplot)
-gsea <- readRDS("../../data_processed/FLASHseq/GSEA_res.Rds")
 
-
-##-----------------------------------------------------------------------------
-gseaplot(gsea, geneSetID="R-HSA-389948", by="runningScore",
-         title=gsea@result%>%filter(ID=="R-HSA-389948")%>%pull(Description))
-ggsave("../figures/FLASHseq_GSEAlot_PD1.png", dpi=600, width=7, height=4.5)
-
-gseaplot(gsea, geneSetID="R-HSA-201722", by="runningScore",
-         title=gsea@result%>%filter(ID=="R-HSA-201722")%>%pull(Description))
-ggsave("../figures/FLASHseq_GSEAlot_bCat_TCF.png", dpi=600, width=7, height=4.5)
 
 ##-----------------------------------------------------------------------------
 gd <- readRDS("../../data_processed/FLASHseq/gd.Rds")
 Idents(gd) <- "cluster"
+
 
 ##-----------------------------------------------------------------------------
 pal_seur <- c("0"="#4682B4", "1"="#AF46B4", "2"="#B47846", "3"="#4BB446")
@@ -657,13 +605,15 @@ pal_dis <- c("control"="#008B8B","UC"="#8B0000")
 names_dis <- c("control"="HD", "UC"="UC (A)")
 
 
+# Figure 1
 
-# Fig 1
 ##-----------------------------------------------------------------------------
 # 1a
 do_DimPlot(gd, label=T, group.by="seurat_clusters", legend.position="none",
            colors.use=pal_seur)
 ggsave("../figures/FLASHseq_UMAP_by_Cluster.pdf", width=2.7, height=3)
+ggsave("../figures/FLASHseq_UMAP_by_Cluster.png", width=2.7, height=3, dpi=600)
+
 
 ##-----------------------------------------------------------------------------
 # 1b
@@ -671,6 +621,7 @@ do_DimPlot(gd, group.by="disease", legend.position="left")+
   scale_color_manual(values=pal_dis ,labels=names_dis)+
   theme(legend.position=c(.2, .15))
 ggsave("../figures/FLASHseq_UMAP_by_disease.pdf", width=2.7, height=3)
+ggsave("../figures/FLASHseq_UMAP_by_disease.png", width=2.7, height=3, dpi=600)
 
 
 ##-----------------------------------------------------------------------------
@@ -711,6 +662,7 @@ p_1 <- ggplot(p_1, aes(x=cluster, fill=disease))+
 p/p_1+plot_layout(heights = c(1, 0.05))
 
 ggsave("../figures/FLASHseq_DotPlot_1.pdf", width=2.8, height=6.75)
+#ggsave("../figures/FLASHseq_DotPlot_1.png", width=3, height=6.75, dpi=600)
 
 rm(p, p_1, genes)
 
@@ -733,11 +685,13 @@ p[[1]]+ggtitle(label="Cytotoxicity and Cytokine\nProduction Signature",
                subtitle=expression(italic("Szabo et al., 2019")))
 
 ggsave("../figures/FLASHseq_VlnPlot_Cyto.pdf", width=3.5, height=3.5)
+ggsave("../figures/FLASHseq_VlnPlot_Cyto.png", width=4, height=3.5, dpi=600)
 
 p[[2]]+ggtitle(label="Tissue Residency\nSignature",
                subtitle=expression(italic("Kumar et al., 2017")))
 
 ggsave("../figures/FLASHseq_VlnPlot_TRM.pdf", width=3.5, height=3.5)
+ggsave("../figures/FLASHseq_VlnPlot_TRM.png", width=4, height=3.5, dpi=600)
 
 rm(i, p)
 
@@ -795,7 +749,9 @@ ggsave("../figures/FLASHseq_SCENIC_RSS_by_Cluster.pdf", width=2.5, height=4)
 
 rm(rss, regulons)
 
-# Fig 3
+
+# Figure 3
+
 ##-----------------------------------------------------------------------------
 # Parameters
 pal_trdv <- setNames(c("#8C564BFF", "#9467BDFF", "#D62728FF", "#2CA02CFF", 
@@ -865,6 +821,7 @@ ggplot(gd@meta.data, aes(x=cluster, fill=fct_rev(TRDV)))+
         legend.justification="top", legend.key.spacing.y=unit(1, "mm"))
 ggsave("../figures/FLASHseq_BarPlot_TRDV_by_Cluster.pdf", width=3.5, height=4)
 
+
 ##-----------------------------------------------------------------------------
 # 3e
 ggplot(gd@meta.data, aes(x=disease, fill=fct_rev(TRGV)))+
@@ -910,6 +867,7 @@ ggplot(aes(x=cluster, fill=TRGV_TRDV))+
         legend.justification="top", legend.key.spacing.y=unit(1, "mm"))
 ggsave("../figures/FLASHseq_BarPlot_TRDV-TRGV_by_Cluster.pdf", width=3.5, height=4)
 
+
 ##-----------------------------------------------------------------------------
 # # Test Function
 # test <-   function(y.pos=NULL, x.pos=NULL){
@@ -917,7 +875,6 @@ ggsave("../figures/FLASHseq_BarPlot_TRDV-TRGV_by_Cluster.pdf", width=3.5, height
 #   aes(label = ifelse(..p.. < 0.0001, "p<0.0001", paste0("p=", ..p.format..)))
 #                     )
 # }
-
 
 
 ##-----------------------------------------------------------------------------
@@ -993,21 +950,330 @@ ggsave("../figures/FLASHseq_BarPlot_TRGVs-TRDVs_by_Disease.pdf", width=4, height
 # 3k
 
 
+# Figure 4
+
+##-----------------------------------------------------------------------------
+# 4a
+Idents(gd) <- "disease"
+
+UC_markers <- FindMarkers(gd, ident.1="UC")%>%
+  rownames_to_column("gene")
+
+geneLogSums <- log2(Matrix::rowMeans(GetAssayData(gd, "RNA", "counts")))
+geneLogSums <- as.data.frame(geneLogSums)%>%
+  rownames_to_column("gene")
+
+UC_markers <- inner_join(UC_markers, geneLogSums, by="gene")%>%
+  mutate(signif=case_when(
+           p_val_adj<0.05 & avg_log2FC>0 ~ "up",
+           p_val_adj<0.05 & avg_log2FC<0 ~ "down",
+           .default="ns"
+         ),
+         signif=factor(signif, levels = c("ns", "down", "up"))
+         )
+
+genes_up <- c("TCF7", "IL7R","GZMK","CD5","CD27","CCR7","ZNF683","TNF",
+              "IFNG","EOMES","S1PR1","SELL","NKG7","GZMB","TBX21","KLRG1", "ITGB2", 
+              "PDCD1", "CTLA4", "LAG3")
+
+genes_down <- c("ITGAE","ITGA1","CD160","ID3")
+
+ggplot()+
+  geom_point(UC_markers%>%filter(signif=="ns"),
+             mapping=aes(x=geneLogSums, y=avg_log2FC, color=signif))+
+  geom_point(UC_markers%>%filter(signif!="ns"),
+             mapping=aes(x=geneLogSums, y=avg_log2FC, color=signif))+
+  theme_classic()+
+  geom_hline(yintercept=0, linetype="dashed", color="red", size=1)+
+  labs(x=expression("log"[2]*"(Mean Expression)"),
+       y=expression("log"[2]*"(Fold Change)"),
+       color=element_blank())+
+  scale_color_manual(values = c("gray", "#008B8B", "#8B0000"))+
+  guides(color=guide_legend(override.aes=list(size=2), reverse=T))+
+  theme(axis.text=element_text(color="black"), text=element_text(size=16),
+        legend.position=c(0.15, 0.85))+
+  
+  ggrepel::geom_label_repel(data=UC_markers%>%filter(gene %in% genes_up), 
+                           aes(label=gene, x=geneLogSums, y=avg_log2FC),
+                           min.segment.length=0, nudge_y=0, nudge_x=0,
+                           size=3, max.overlaps=15)+
+  ggrepel::geom_label_repel(data=UC_markers%>%filter(gene %in% genes_down), 
+                           aes(label=gene, x=geneLogSums, y=avg_log2FC),
+                           min.segment.length=0, nudge_y=-1, nudge_x=0,
+                           size=3)
+
+ggsave("../figures/FLASHseq_MAPlot.pdf", width=5, height=5)
+
+rm(genes_down, genes_up, UC_markers, geneLogSums)
+
+
+##-----------------------------------------------------------------------------
+# 4b
+gsea <- readRDS("../../data_processed/FLASHseq/GSEA_res.Rds")
+
+gsea@result%>%filter(ID %in% c("R-HSA-389948","R-HSA-202427","R-HSA-388841",
+    "R-HSA-202430","R-HSA-6785807","R-HSA-449147","R-HSA-2132295",
+    "R-HSA-877300", "R-HSA-500792"))%>%
+
+ggplot(aes(x=NES, y=reorder(Description, NES), fill=-log10(p.adjust)))+
+  geom_bar(stat="identity")+
+  theme_bw()+
+  scale_fill_gradientn(limits = c(1.3, 3), colors=c("#E8FFFF", "#00007A"))+
+  scale_y_discrete(labels=label_wrap(25))+
+  guides(fill=guide_colorbar(frame.colour="black", frame.linewidth=.5,
+                             ticks.colour="black", ticks.linewidth=.5))+
+  labs(x="Normalized Enrichment Score (NES)",y=NULL,
+       fill=expression("-log"[10]*"(P)"), title="Gene Set Enrichment")+
+  
+  theme(panel.grid=element_blank(), panel.border=element_rect(color="black", size=1),
+    axis.text=element_text(color="black"),plot.title=element_text(face="bold", hjust=.5)
+        )
+
+ggsave("../figures/FLASHseq_GSEA_NESplot.pdf", width=5, height=4)
+
+
+
+##-----------------------------------------------------------------------------
+# 4c
+gseaplot(gsea, geneSetID="R-HSA-389948", by="runningScore",
+         title=gsea@result%>%filter(ID=="R-HSA-389948")%>%pull(Description))
+ggsave("../figures/FLASHseq_GSEAplot_PD1.pdf", width=7, height=4.5)
+
+gseaplot(gsea, geneSetID="R-HSA-201722", by="runningScore",
+         title=gsea@result%>%filter(ID=="R-HSA-201722")%>%pull(Description))
+ggsave("../figures/FLASHseq_GSEAplot_bCat_TCF.pdf", width=7, height=4.5)
+
+rm(gsea)
+
+
+##-----------------------------------------------------------------------------
+# 4d, 4e
+heat <- DotPlot(gd, group.by="cluster",
+          features=c("CD28", "TNFSF14", "TNFRSF4", "TNFRSF9", "ICOS"))$data
+
+p1 <- ggplot(heat, aes(x=id, y=rev(features.plot),fill=avg.exp.scaled))+
+  geom_tile(color="white", size=.25)+
+  theme_minimal()+
+  scale_fill_gradient2(low="blue", mid="beige", high="red", midpoint=0)+
+  guides(fill=guide_colorbar(frame.colour="black", frame.linewidth=.5,
+                             ticks.colour="black", ticks.linewidth=.25
+                             ))+
+  labs(fill="Avg.\nExpr.\nScal.", title="Costimulatory\nMolecules")+
+  theme(panel.grid.major=element_blank(), panel.border=element_rect(color="black", fill=NA, size=1),
+        axis.title=element_blank(), axis.text=element_text(color="black"),
+        legend.key.width=unit(.5, "cm"), legend.key.height=unit(.45, "cm"),
+        legend.justification="top")
+
+heat <- DotPlot(gd, group.by="cluster",
+          features=c("PDCD1", "CD244", "LAG3", "CTLA4", "HAVCR2"))$data
+
+p2 <- ggplot(heat, aes(x=id, y=rev(features.plot),fill=avg.exp.scaled))+
+  geom_tile(color="white", size=.25)+
+  theme_minimal()+
+  scale_fill_gradient2(low="blue", mid="beige", high="red", midpoint=0)+
+  labs(fill="Avg.\nExpr.\nScal.", title="Inhibitory\nReceptors")+
+  theme(panel.grid.major=element_blank(), panel.border=element_rect(color="black", fill=NA, size=1),
+        axis.title=element_blank(), axis.text=element_text(color="black"))
+
+ggarrange(p1, p2, common.legend=T, legend="right", widths=c(1, .95))
+
+ggsave("../figures/FLASHseq_HeatMap_1.pdf", width=4.3, height=2)
+
+rm(p1, p2, heat)
+
+
+##-----------------------------------------------------------------------------
+# 4f-4j
+scores <- grep(colnames(gd@meta.data), pattern="stem1$|effector1$", value=T)
+
+p <- VlnPlot_scCustom(gd, features=scores, group.by="cluster",
+                 pt.size=0, colors_use=pal_clu, sort=T,
+                 add.noise=F, num_columns=2)&
+  theme(axis.title=element_blank(),axis.title.y=element_text(angle=0, vjust=0.5))&
+  scale_y_continuous(expand=expansion(mult=c(0.05, 0.05)))&
+  geom_boxplot(width=.4, fill="white", outlier.shape=NA, coef=0, color="black", size=.35)
+
+p[[1]] <- p[[1]]+ggtitle("Stem-Like\nSignature")
+p[[2]] <- p[[2]]+ggtitle("Effector\nSignature")
+
+for (i in 3:length(p)) {
+  p[[i]] <- p[[i]] + ggtitle(NULL)
+}
+
+
+p[[1]] <- p[[1]] + ylab(bquote(atop("Siddiqui"~italic("et al."), "2019")))
+p[[3]] <- p[[3]] + ylab(bquote(atop(plain("Im")~italic("et al."), "2016")))
+p[[5]] <- p[[5]] + ylab(bquote(atop(plain("Wu")~italic("et al."), "2016")))
+p[[7]] <- p[[7]] + ylab(bquote(atop(plain("Utzschneider"), italic("et al.")~"2016")))
+p[[9]] <- p[[9]] + ylab(bquote(atop(plain("Li")~italic("et al."), "2024")))
+
+
+for (i in seq_along(p)) {
+  p[[i]][["layers"]][[1]][["stat_params"]][["trim"]] <- FALSE
+}
+
+p
+
+ggsave("../figures/FLASHseq_VlnPlots_Stem_Effector_Signatures.pdf", width=7, height=10)
+ggsave("../figures/FLASHseq_VlnPlots_Stem_Effector_Signatures.png", width=7, height=10)
+
+rm(p, i, scores)
+
+
+##-----------------------------------------------------------------------------
+# 4k, 4l
+heat <- DotPlot(gd, group.by="cluster",
+  features=c("PRF1", "FASLG", "TNFSF10", "TNF", "GZMB", "GZMA", "IL2", "IFNG"))$data
+
+p1 <- ggplot(heat, aes(x=id, y=rev(features.plot),fill=avg.exp.scaled))+
+  geom_tile(color="white", size=.25)+
+  theme_minimal()+
+  scale_fill_gradient2(low="blue", mid="beige", high="red", midpoint=0)+
+  guides(fill=guide_colorbar(frame.colour="black", frame.linewidth=.5,
+                             ticks.colour="black", ticks.linewidth=.25
+                             ))+
+  labs(fill="Avg.\nExpr.\nScal.", title="Costimulatory\nMolecules")+
+  theme(panel.grid.major=element_blank(), panel.border=element_rect(color="black", fill=NA, size=1),
+        axis.title=element_blank(), axis.text=element_text(color="black"),
+        legend.key.width=unit(.5, "cm"), legend.key.height=unit(.45, "cm"),
+        legend.justification="top")
+
+heat <- DotPlot(gd, group.by="cluster",
+    features=c("ID2", "BCL6", "ID3", "TBX21", "TOX", "EOMES", "TCF7", "FOXO1"))$data
+
+p2 <- ggplot(heat, aes(x=id, y=rev(features.plot),fill=avg.exp.scaled))+
+  geom_tile(color="white", size=.25)+
+  theme_minimal()+
+  scale_fill_gradient2(low="blue", mid="beige", high="red", midpoint=0)+
+  labs(fill="Avg.\nExpr.\nScal.", title="Inhibitory\nReceptors")+
+  theme(panel.grid.major=element_blank(), panel.border=element_rect(color="black", fill=NA, size=1),
+        axis.title=element_blank(), axis.text=element_text(color="black"))
+
+ggarrange(p1, p2, common.legend=T, legend="right", widths=c(1, .95))
+
+ggsave("../figures/FLASHseq_HeatMap_2.pdf", width=4, height=2.5)
+
+rm(p1, p2, heat)
+
+
+# BBI Meeting
+##-----------------------------------------------------------------------------
+Idents(gd) <- "cluster"
+
+genes <- c("ITGAE","ITGA1","CD160","GZMA","ID3", 
+           "TCF7", "IL7R", "PDCD1", "GZMK", "CD27", "CD28","CCR7",
+           "EOMES", "SELL","FCGR3A", "GNLY", "NKG7","GZMB", "PRF1","TBX21",
+           "ZEB2","KLRG1")
+
+p <- DotPlot(gd, group.by="cluster", features=genes)+
+  scale_color_gradient2(low="navy", mid="beige", high="darkred", midpoint=0)+
+  guides(color=guide_colorbar(frame.colour="black", frame.linewidth=.5,
+          ticks.colour="black", ticks.linewidth=.5, title="Avg.\nScal.\nExpr."),
+         size=guide_legend(override.aes=list(fill="white", shape=21),title="% Expr.")
+        )+
+ # geom_point(aes(size=pct.exp), shape=21, colour="white", stroke=.5)+
+  theme(axis.title=element_blank(),axis.ticks.length.x=unit(1.5, "mm"),
+        panel.grid.major=element_line(color="gray95"), legend.justification="top")+
+  coord_flip()+RotatedAxis()
+
+help("RotatedAxis")
+
+p_1 <- gd@meta.data%>%mutate(cluster=factor(cluster, levels=levels(p$data$id)))
+
+p_1 <- ggplot(p_1, aes(x=cluster, fill=disease))+
+  geom_bar(position="fill")+
+  scale_fill_manual(values=pal_dis, labels=names_dis)+
+  theme_void()+
+  theme(text=element_text(size=18),legend.title=element_blank(),
+        legend.position=c(1.65, .5), legend.key.size=unit(4, "mm"), 
+        legend.spacing.y=unit(0.5, "mm"), legend.margin=margin(t=-8)
+        )+
+  guides(fill=guide_legend(ncol=1, byrow=T))+
+  geom_hline(yintercept=.5, linetype="dashed", linewidth=.75)
+
+p/p_1+plot_layout(heights = c(1, 0.05))
+
+ggsave("../figures/BBI_FLASHseq_DotPlot_1.png", width=3, height=6.75, dpi=600)
+
+rm(p, p_1, genes)
+
+
+
+##-----------------------------------------------------------------------------
+scores <- c("utz16_stem1","utz16_effector1")
+
+ p <- VlnPlot_scCustom(gd, features=scores, group.by = "cluster",
+                 pt.size = 0, colors_use = pal_clust, sort=T,
+                 num_columns = 1, adjust=1)&
+  theme(axis.title = element_blank(),
+        plot.background = element_blank())&
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.05)))&
+    geom_boxplot(fill="white", color="black", width=.3, outlier.shape = NA, coef=0)
+
+
+
+p[[1]] <- p[[1]] + ggtitle(expression("Tcf1"^"+"~"Stem-Like"))
+p[[2]] <- p[[2]] + ggtitle(expression("Tcf1"^"-"~"Effector"))
+
+p <- p + plot_annotation(title = " Gene Signatures from\nUtzschneider et al. 2016",
+                    theme = theme(plot.title = element_text(size = 16, hjust=.5)))
+
+for (i in seq_along(p)){
+  p[[i]][["layers"]][[1]][["stat_params"]][["trim"]] <- FALSE
+}
+p
+
+ggsave("../figures/BBI_FLASHseq_StemLike_VlnPlots.png", dpi=600, width=3,
+       height=5, bg="white")
+
+
+
+##-----------------------------------------------------------------------------
+FeaturePlot(gd, features=c("PDCD1", "TCF7", "IL7R", "CD27", "CD28", "CXCR5"))&NoLegend()&
+  NoAxes()
+
+##-----------------------------------------------------------------------------
+gd@meta.data%>%
+  filter(!is.na(TRGV_TRDV))%>%
+  group_by(disease_ID)%>%
+  count(TRGV_TRDV)%>%
+  mutate(percent=(n/sum(n)*100))%>%
+  separate(disease_ID, into=c("disease", "treatment", "id"), sep="_")%>%
+  filter(TRGV_TRDV %in% c("TRGV9_TRDV2", "TRGV4_TRDV1"))%>%
+  mutate(TRGV_TRDV=factor(TRGV_TRDV, levels=c("TRGV9_TRDV2", "TRGV4_TRDV1")))%>%
+ggplot(aes(x=disease, y=percent, fill=disease))+
+  geom_boxplot(color="black", outlier.shape=NA)+
+  geom_point()+
+  scale_fill_manual(values=pal_dis)+
+  scale_x_discrete(labels=names_dis)+
+  theme_minimal()+
+  labs(x=NULL, y="% of all subsets")+
+  theme(axis.line.y=element_line(), axis.ticks.y=element_line(),
+        panel.grid=element_blank(), axis.text=element_text(color="black"),
+        legend.position="none", strip.text=element_text(face="bold", size=12))+
+  facet_wrap(~TRGV_TRDV, scales="free_y", ncol=1)
+
+ggsave("../figures/FLASHseq_BarPlot_TRGVs-TRDVs_by_Disease.png", width=2, height=4,
+       dpi=600, bg="white")
 
 
 
 
 
+##-----------------------------------------------------------------------------
+FeaturePlot_scCustom(gd, features=c("RORC", "CCR6", "IL23R", "DPP4", "TRDV2"), pt.size=2)&NoAxes()&NoLegend()
 
 
+##-----------------------------------------------------------------------------
+df <- DotPlot_scCustom(gd, features=c("RORC", "CCR6", "IL23R", "DPP4", "TRDV2"),
+                 group.by="seurat_clusters")&coord_flip()
+df <- df$data
 
-
-
-
-
-
-
-
+df%>%
+  ggplot(aes(x=id, y=features.plot, fill=avg.exp.scaled))+
+  geom_tile(color="black")+
+  theme_classic()+
+  scale_fill_gradient2(low="navy", mid="beige", high="darkred", midpoint = 0)
 
 
 
