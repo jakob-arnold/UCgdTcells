@@ -84,8 +84,15 @@ meta_function <- function(seurat_obj) {
         .default="UC"
       )
     )%>%
-      unite("diseaseID", disease, batch, hash.ID, sep="_", remove=FALSE)%>%
-    mutate(diseaseID=str_replace(diseaseID, pattern="hash", replacement=""))
+    mutate(diseaseID=case_when(
+      batch=="R1" & disease=="HD" ~ paste0(disease, str_remove(hash.ID, "hash")),
+      batch=="R2" & disease=="HD" ~ paste0(disease, as.numeric(str_remove(hash.ID, "hash"))+3),
+      batch=="R1" & disease=="UC" ~ paste0(disease, as.numeric(str_remove(hash.ID, "hash"))-3),
+      batch=="R2" & disease=="UC" ~ paste0(disease, as.numeric(str_remove(hash.ID, "hash"))+1)
+    ))
+    #   unite("diseaseID", disease, batch, hash.ID, sep="_", remove=FALSE)%>%
+    # mutate(diseaseID=str_replace(diseaseID, pattern="hash", replacement=""))
+    
 
   seurat_obj$percent.mt <- PercentageFeatureSet(seurat_obj, pattern="^MT-")
   
@@ -115,7 +122,23 @@ rm(i, meta_function, all)
 # Vd1
 ## QC
 ##-----------------------------------------------------------------------------
-VlnPlot_scCustom(vd1, features=c("nFeature_RNA", "nCount_RNA", "percent.mt"), pt.size=0)
+p <- VlnPlot_scCustom(vd1, add.noise=F, pt.size=0,
+                      features=c("nFeature_RNA", "nCount_RNA", "percent.mt"))&
+  theme(axis.title=element_blank())
+
+p[[1]] <- p[[1]]+geom_hline(yintercept=c(500, 3000), linetype="dashed", color="red")+
+  ggtitle("Number of Genes")
+p[[2]] <- p[[2]]+geom_hline(yintercept=c(10000), linetype="dashed", color="red")+
+  ggtitle("UMI counts")
+p[[3]] <- p[[3]]+geom_hline(yintercept=c(10), linetype="dashed", color="red")+
+  ggtitle("% Mitochondrial\nGenes")
+p
+
+# Save QC Plots 
+ggsave("../../2_figures_code/figures/10X_Vd1_VlnPlots_QC.pdf", width=6.5, height=3.5)
+ggsave("../../2_figures_code/figures/10X_Vd1_VlnPlots_QC.png", dpi=600, width=6.5, height=3.5)
+
+rm(p)
 
 ##-----------------------------------------------------------------------------
 vd1 <- subset(vd1, subset=nFeature_RNA>500 & nFeature_RNA<3000 &
@@ -169,12 +192,16 @@ contig <- list("R1"=read_tsv( "../../data_raw/10X/R1/VD1/clones.tsv"),
                "R2"=read_tsv("../../data_raw/10X/R2/VD1/clones.tsv"))
 contig <- loadContigs(contig, format = "MiXCR")
 
+
+##-----------------------------------------------------------------------------
 # Remove allele variant calls + scoring (*00(###))
 contig <- lapply(contig, function(df) {
     df %>%
     mutate_at(paste0(c("v", "d", "j", "c"), "_gene"), ~str_replace(., "\\*.*", ""))
 })
 
+
+##-----------------------------------------------------------------------------
 combined <- combineTCR(contig,  removeNA=T, filterMulti=T)
 names(combined) <- names(contig)
 
@@ -182,19 +209,63 @@ for (i in seq_along(combined)) {
   combined[[i]]$barcode <- paste0(names(combined[i]), "_VD1_", combined[[i]]$barcode, "-1")
 }
 
+
+##-----------------------------------------------------------------------------
 combined <- list(bind_rows(combined))
 
 vd1 <- combineExpression(combined, vd1, proportion=F,cloneSize=c(
   Single=1, Small=5, Medium=25, Large=100, Hyper=100
 ))
 
-rm(i, combined, contig)
+
+##-----------------------------------------------------------------------------
+trgv <- combineTCR(contig,  removeNA=F, filterMulti=T)
+
+names(trgv) <- names(contig)
+
+for (i in seq_along(trgv)) {
+  trgv[[i]]$barcode <- paste0(names(trgv[i]), "_VD1_", trgv[[i]]$barcode, "-1")
+}
+
+trgv <- bind_rows(trgv)%>%
+  separate(TCR1, into=c("TRGV", "TRGJ", "TRGC"), sep="\\.")%>%
+  mutate(TRGV=factor(TRGV, levels=c(
+    paste0("TRGV", 2:5), "TRGV5P", paste0("TRGV", 7:11)
+  )))%>%
+  select(barcode, TRGV)
+
+
+##-----------------------------------------------------------------------------
+vd1@meta.data <- vd1@meta.data%>%
+  rownames_to_column("barcode")%>%
+  left_join(trgv, by="barcode")%>%
+  column_to_rownames("barcode")
+
+
+##-----------------------------------------------------------------------------
+rm(i, combined, contig, trgv)
 
 
 # Vd2
 ## QC
 ##-----------------------------------------------------------------------------
-VlnPlot_scCustom(vd2, features=c("nFeature_RNA", "nCount_RNA", "percent.mt"), pt.size=0)
+p <- VlnPlot_scCustom(vd2, add.noise=F, pt.size=0,
+                      features=c("nFeature_RNA", "nCount_RNA", "percent.mt"))&
+  theme(axis.title=element_blank())
+
+p[[1]] <- p[[1]]+geom_hline(yintercept=c(200, 3000), linetype="dashed", color="red")+
+  ggtitle("Number of Genes")
+p[[2]] <- p[[2]]+geom_hline(yintercept=c(10000), linetype="dashed", color="red")+
+  ggtitle("UMI counts")
+p[[3]] <- p[[3]]+geom_hline(yintercept=c(15), linetype="dashed", color="red")+
+  ggtitle("% Mitochondrial\nGenes")
+p
+
+# Save QC Plots 
+ggsave("../../2_figures_code/figures/10X_Vd2_VlnPlots_QC.pdf", width=6.5, height=3.5)
+ggsave("../../2_figures_code/figures/10X_Vd2_VlnPlots_QC.png", dpi=600, width=6.5, height=3.5)
+
+rm(p)
 
 
 ##-----------------------------------------------------------------------------
@@ -250,12 +321,18 @@ contig <- list("R1"=read_tsv( "../../data_raw/10X/R1/VD2/clones.tsv"),
                "R2"=read_tsv("../../data_raw/10X/R2/VD2/clones.tsv"))
 contig <- loadContigs(contig, format = "MiXCR")
 
+
+
+##-----------------------------------------------------------------------------
 # Remove allele variant calls + scoring (*00(###))
 contig <- lapply(contig, function(df) {
     df %>%
     mutate_at(paste0(c("v", "d", "j", "c"), "_gene"), ~str_replace(., "\\*.*", ""))
 })
 
+
+
+##-----------------------------------------------------------------------------
 combined <- combineTCR(contig,  removeNA=T, filterMulti=T)
 names(combined) <- names(contig)
 
@@ -265,15 +342,46 @@ for (i in seq_along(combined)) {
 
 combined <- list(bind_rows(combined))
 
+
+##-----------------------------------------------------------------------------
 vd2 <- combineExpression(combined, vd2, proportion=F,cloneSize=c(
   Single=1, Small=5, Medium=25, Large=100, Hyper=100
 ))
 
-rm(i, combined, contig)
+
+##-----------------------------------------------------------------------------
+trgv <- combineTCR(contig,  removeNA=F, filterMulti=T)
+
+names(trgv) <- names(contig)
+
+for (i in seq_along(trgv)) {
+  trgv[[i]]$barcode <- paste0(names(trgv[i]), "_VD2_", trgv[[i]]$barcode, "-1")
+}
+
+trgv <- bind_rows(trgv)%>%
+  separate(TCR1, into=c("TRGV", "TRGJ", "TRGC"), sep="\\.")%>%
+  mutate(TRGV=factor(TRGV, levels=c(
+    paste0("TRGV", 2:5), "TRGV5P", paste0("TRGV", 7:11)
+  )))%>%
+  select(barcode, TRGV)
+
+
+##-----------------------------------------------------------------------------
+vd2@meta.data <- vd2@meta.data%>%
+  rownames_to_column("barcode")%>%
+  left_join(trgv, by="barcode")%>%
+  column_to_rownames("barcode")
+
+
+##-----------------------------------------------------------------------------
+rm(i, combined, contig, trgv)
 
 
 # Saving Objects
 ##-----------------------------------------------------------------------------
+vd1$cluster <- paste0("C", vd1$seurat_clusters)
+vd2$cluster <- paste0("C", vd2$seurat_clusters)
+
 saveRDS(vd1, "../../data_processed/10X/Vd1.Rds")
 saveRDS(vd2, "../../data_processed/10X/Vd2.Rds")
 

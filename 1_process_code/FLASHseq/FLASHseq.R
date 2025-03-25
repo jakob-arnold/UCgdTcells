@@ -89,14 +89,21 @@ rm(rws, lookup_table)
 gd_raw <- SetIdent(gd_raw, value="all")
 gd_raw[["percent.mt"]] <- PercentageFeatureSet(gd_raw, pattern = "^MT-")
 
-p <- VlnPlot_scCustom(gd_raw, add.noise = F, pt.size = 0.1,
+p <- VlnPlot_scCustom(gd_raw, add.noise=F, pt.size=0,
                       features=c("nFeature_RNA", "nCount_RNA", "percent.mt"))&
   theme(axis.title=element_blank())
 
-p[[1]] <- p[[1]]+geom_hline(yintercept=c(500, 4000), linetype="dashed", color="red")
-p[[2]] <- p[[2]]+geom_hline(yintercept=c(50000), linetype="dashed", color="red")
-p[[3]] <- p[[3]]+geom_hline(yintercept=c(75), linetype="dashed", color="red")
+p[[1]] <- p[[1]]+geom_hline(yintercept=c(500, 4000), linetype="dashed", color="red")+
+  ggtitle("Number of Genes")
+p[[2]] <- p[[2]]+geom_hline(yintercept=c(50000), linetype="dashed", color="red")+
+  ggtitle("UMI counts")
+p[[3]] <- p[[3]]+geom_hline(yintercept=c(75), linetype="dashed", color="red")+
+  ggtitle("% Mitochondrial\nGenes")
 p
+
+# Save QC Plots 
+ggsave("../../2_figures_code/figures/FLASHseq_VlnPlots_QC.pdf", width=6.5, height=3.5)
+ggsave("../../2_figures_code/figures/FLASHseq_VlnPlots_QC.png", dpi=600, width=6.5, height=3.5)
 
 rm(p)
 
@@ -153,7 +160,7 @@ library(enrichplot)
 
 Idents(gd) <- "disease"
 
-diffexpgenes <- FindMarkers(gd, ident.1 = "UC", ident.2 = "control", min.pct	= 0.01, logfc.threshold= 0 )
+diffexpgenes <- FindMarkers(gd, ident.1 = "UC", ident.2 = "control", min.pct	= 0, logfc.threshold=0)
 
 eg <- bitr(rownames(diffexpgenes), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
 eg <- subset(eg,!duplicated(eg$SYMBOL))
@@ -169,6 +176,9 @@ fc <- sort(fc, decreasing = T)
 y <- gsePathway(fc, verbose=T, organism = "human", seed=1337, pvalueCutoff=1)
 res <- as.data.frame(y)
 
+
+
+##-----------------------------------------------------------------------------
 write_csv(res, "../../data_processed/FLASHseq/GSEA.csv")
 saveRDS(y, "../../data_processed/FLASHseq/GSEA_res.Rds")
 
@@ -339,7 +349,7 @@ im16 <- read_tsv("../../genesets/im16_stem_vs_effector.tsv")%>%
 im16_stem <- im16%>%filter(logFC >= 1)%>%pull(Gene.symbol)%>%
   mouse_to_human()
 
-im16_effector <- im16%>%filter(logFC <= -1)%>%pull(Gene.symbol)%>%
+im16_effector <- im16%0.1534872>%filter(logFC <= -1)%>%pull(Gene.symbol)%>%
   mouse_to_human()
 
 # Wu 2016: The TCF1-Bcl6 axis counteracts type I interferon to repress

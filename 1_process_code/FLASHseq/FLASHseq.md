@@ -13,6 +13,7 @@ library(biomaRt)
 library(readxl)
 library(SCENIC)
 library(AUCell)
+library(future.apply)
 ```
 
 # Processing Data
@@ -20,97 +21,129 @@ library(AUCell)
 ## Reading Count Matrix
 
 ``` r
-mtx <- readMM("../../data_raw/FLASHseq/counts.mtx")
-cells <- read_tsv("../../data_raw/FLASHseq/cells.tsv", col_names = F)$X1
-genes <- read_tsv("../../data_raw/FLASHseq/genes.tsv", col_names = F)$X1
+mtx <- readMM("../../data_raw/FLASHseq/R1/counts.mtx")
+cells <- read_tsv("../../data_raw/FLASHseq/R1/cells.tsv", col_names=F)$X1
+genes <- read_tsv("../../data_raw/FLASHseq/R1/genes.tsv", col_names=F)$X1
 
 colnames(mtx) <- cells
 rownames(mtx) <- genes
+```
 
-gd_raw <- CreateSeuratObject(mtx)
+``` r
+R1 <- CreateSeuratObject(mtx)
+```
 
-rm(mtx, cells, genes)
+``` r
+mtx <- readMM("../../data_raw/FLASHseq/R2/counts.mtx")
+cells <- read_tsv("../../data_raw/FLASHseq/R2/cells.tsv", col_names=F)$X1
+genes <- read_tsv("../../data_raw/FLASHseq/R2/genes.tsv", col_names=F)$X1
+
+colnames(mtx) <- cells
+rownames(mtx) <- genes
+```
+
+``` r
+R2 <- CreateSeuratObject(mtx)
+```
+
+``` r
+gd_raw <- merge(R1, R2)%>%
+  JoinLayers()
+
+rm(mtx, R1, R2, genes, cells)
 ```
 
 ## Creating Lookup Table for Patient Data
 
 ``` r
-# Function to print complete rows (letters A-P = 1-16)
+# Function to print complete rows (letters A-P=1-16)
 rws <- function(numb) {
   sequence <- paste0(rep(LETTERS[numb], each=24), 1:24)
   return(sequence)
 }
 
 lookup_table <- data.frame(
-  plate = rep(c("E64","E65", "E66", "E67", "E70"), each = 16*24),
-  well = rep(paste0(rep(LETTERS[1:16], each = 24), rep(1:24, times=16)), times=5)
+  plate=rep(c("E64","E65", "E66", "E67", "E70",
+              "E103", "E105"),
+            each=16*24),
+  well=rep(paste0(rep(LETTERS[1:16], each=24), rep(1:24, times=16)), times=7)
             )%>%
-  mutate(ID = case_when(
-    plate == "E66" & well %in% c(rws(1:3), paste0("D", 17:24)) ~ "6588",
-    plate == "E66" & well %in% c(rws(5:16), paste0("D", 1:16)) ~ "8333",
-    plate == "E64" & well %in% c(rws(1:7), paste0("H", 22:24)) ~ "6809",
-    plate == "E64" & well %in% c(rws(9:16), paste0("H", 1:21)) ~ "7802",
-    plate == "E65" ~ "7130",
-    plate == "E67" & well %in% c(rws(1:5), paste0("F", 14:24)) ~ "7802",
-    plate == "E67" & well %in% c(rws(7:16), paste0("F", 1:13)) ~ "7130",
-    plate == "E70" & well %in% c(rws(1:7), paste0("H", 15:24)) ~ "8626",
-    .default = "3600"
+  mutate(ID=case_when(
+    plate == "E66" & well %in% c(rws(1:3), paste0("D", 17:24)) ~ "UC1",
+    plate == "E66" & well %in% c(rws(5:16), paste0("D", 1:16)) ~ "UC2",
+    plate == "E64" & well %in% c(rws(1:7), paste0("H", 22:24)) ~ "UC3",
+    plate == "E64" & well %in% c(rws(9:16), paste0("H", 1:21)) ~ "HD1",
+    plate == "E65" ~ "HD2",
+    plate == "E67" & well %in% c(rws(1:5), paste0("F", 14:24)) ~ "HD1",
+    plate == "E67" & well %in% c(rws(7:16), paste0("F", 1:13)) ~ "HD2",
+    plate == "E70" & well %in% c(rws(1:7), paste0("H", 15:24)) ~ "UC4",
+    plate == "E70" & well %in% c(rws(9:16), paste0("H", 1:14)) ~ "UC5",
+    
+    plate == "E103" ~ "HD3",
+    plate == "E105" & well %in% c(rws(1:6), paste0("G", 1:15)) ~ "HD4",
+    plate == "E105" & well %in% c(rws(8:10), paste0("G", 16:24), paste0("K", 1:14)) ~ "UC6",
         ))%>%
- unite("PlateWell", plate:well)
+  unite("PlateWell", plate:well)%>%
+  mutate(disease=str_remove(ID, "[0-9]"))
 ```
 
 ## Adding Patient Meta Data
 
 ``` r
 gd_raw@meta.data <- gd_raw@meta.data%>%
-  mutate(PlateWell = rownames(gd_raw@meta.data))%>%
+  rownames_to_column("PlateWell")%>%
   left_join(lookup_table, by="PlateWell")%>%
   column_to_rownames("PlateWell")
 
-gd_raw@meta.data <- gd_raw@meta.data%>%
-  mutate(disease = case_when(
-    ID %in% c("7130", "7802") ~ "control",
-    .default = "UC"))%>%
-  mutate(treatment = case_when(
-    ID %in% c("8626", "6809", "6588") ~ "Mesalazine",
-    .default = "no treatment"))%>%
-  unite("disease_ID", c("disease", "treatment", "ID"), sep = "_", remove = F)
-
 rm(rws, lookup_table)
 ```
+
+``` r
+summary(as.factor(gd_raw$ID))
+```
+
+    ## HD1 HD2 HD3 HD4 UC1 UC2 UC3 UC4 UC5 UC6 
+    ## 344 637 384 159  80 304 171 178 206  95
 
 ## QC
 
 ``` r
 gd_raw <- SetIdent(gd_raw, value="all")
-gd_raw[["percent.mt"]] <- PercentageFeatureSet(gd_raw, pattern = "^MT-")
+gd_raw[["percent.mt"]] <- PercentageFeatureSet(gd_raw, pattern="^MT-")
 
-p <- VlnPlot_scCustom(gd_raw, add.noise = F, pt.size = 0.1,
+p <- VlnPlot_scCustom(gd_raw, add.noise=F, pt.size=0,
                       features=c("nFeature_RNA", "nCount_RNA", "percent.mt"))&
   theme(axis.title=element_blank())
 
-p[[1]] <- p[[1]]+geom_hline(yintercept=c(500, 4000), linetype="dashed", color="red")
-p[[2]] <- p[[2]]+geom_hline(yintercept=c(50000), linetype="dashed", color="red")
-p[[3]] <- p[[3]]+geom_hline(yintercept=c(75), linetype="dashed", color="red")
+p[[1]] <- p[[1]]+geom_hline(yintercept=c(500, 4000), linetype="dashed", color="red")+
+  ggtitle("Number of Genes")
+# p[[2]] <- p[[2]]+geom_hline(yintercept=c(50000), linetype="dashed", color="red")+
+#   ggtitle("UMI counts")
+p[[3]] <- p[[3]]+geom_hline(yintercept=c(75), linetype="dashed", color="red")+
+  ggtitle("% Mitochondrial\nGenes")
 p
 ```
 
-<img src="FLASHseq_files/figure-gfm/unnamed-chunk-5-1.png" style="display: block; margin: auto;" />
+<img src="FLASHseq_files/figure-gfm/unnamed-chunk-10-1.png" style="display: block; margin: auto;" />
 
 ``` r
+# Save QC Plots 
+ggsave("../../2_figures_code/figures/FLASHseq_VlnPlots_QC.pdf", width=6.5, height=3.5)
+ggsave("../../2_figures_code/figures/FLASHseq_VlnPlots_QC.png", dpi=600, width=6.5, height=3.5)
+
 rm(p)
 ```
 
 ## Subsetting High Quality Cells
 
 ``` r
-gd <- subset(gd_raw, subset = percent.mt < 75 & nFeature_RNA > 500 &
-             nFeature_RNA < 4000 & nCount_RNA > 50000)
+gd <- subset(gd_raw, subset=percent.mt < 75 & nFeature_RNA > 500 &
+             nFeature_RNA < 4000)
 
 # Removing ribosomal and mitochondrial genes
 non.R_M.genes <- rownames(gd[["RNA"]]$counts[grep("^(RPL\\d|RPS\\d|MT-)",
-                          rownames(gd[["RNA"]]$counts), invert = T),])
-gd <- subset(gd, features = non.R_M.genes)
+                          rownames(gd[["RNA"]]$counts), invert=T),])
+gd <- subset(gd, features=non.R_M.genes)
 
 rm(gd_raw, non.R_M.genes)
 ```
@@ -118,40 +151,75 @@ rm(gd_raw, non.R_M.genes)
 ## Processing
 
 ``` r
-gd <- gd%>%NormalizeData()%>%FindVariableFeatures()%>%ScaleData()%>%
-  RunPCA(verbose=F)%>%RunUMAP(dims=1:30)%>%FindNeighbors(dims=1:30)%>%FindClusters()
+gd <- gd%>%
+  NormalizeData()%>%
+  FindVariableFeatures()%>%
+  ScaleData()%>%
+  RunPCA()%>%
+  RunUMAP(dims=1:30)%>%
+  FindNeighbors(dims=1:30)%>%
+  FindClusters(resolution=1.5)
 ```
 
 ``` r
-FeaturePlot_scCustom(gd, features = c("MS4A1", "CD19", "MS4A7", "CD14", "CD4",
+FeaturePlot_scCustom(gd, features=c("MS4A1", "CD19", "MS4A7", "CD14", "CD4",
                                       "TRDC"))&NoAxes()&NoLegend()
 ```
 
-<img src="FLASHseq_files/figure-gfm/unnamed-chunk-8-1.png" style="display: block; margin: auto;" />
+<img src="FLASHseq_files/figure-gfm/unnamed-chunk-13-1.png" style="display: block; margin: auto;" />
 
 ``` r
 do_DimPlot(gd, label=T)&NoAxes()&NoLegend()
 ```
 
-<img src="FLASHseq_files/figure-gfm/unnamed-chunk-8-2.png" style="display: block; margin: auto;" />
+<img src="FLASHseq_files/figure-gfm/unnamed-chunk-13-2.png" style="display: block; margin: auto;" />
 
 ## Remove non gd Cells; Recluster
 
 ``` r
-gd <- subset(gd, idents = c("4", "5"), invert = T)
-
-gd <- gd%>%FindVariableFeatures()%>%ScaleData()%>%RunPCA(verbose=F)%>%
-  RunUMAP(dims=1:30)%>%FindNeighbors(dims=1:30)%>%FindClusters()
-
-gd@meta.data <- gd@meta.data%>%
-  mutate(cluster = paste0("C", seurat_clusters))
+gd <- subset(gd, idents=c("8", "9"), invert=T)
 ```
 
 ``` r
-do_DimPlot(gd, pt.size=2, label=T)&NoAxes()&NoLegend()
+gd <- gd%>%
+  FindVariableFeatures()%>%
+  ScaleData(vars.to.regress=c("percent.mt", "nCount_RNA"))%>%
+  RunPCA()
 ```
 
-<img src="FLASHseq_files/figure-gfm/unnamed-chunk-10-1.png" style="display: block; margin: auto;" />
+``` r
+ElbowPlot(gd, 50)
+```
+
+<img src="FLASHseq_files/figure-gfm/unnamed-chunk-16-1.png" style="display: block; margin: auto;" />
+
+``` r
+gd <- gd%>%
+  RunUMAP(dims=1:10)%>%
+  FindNeighbors(dims=1:10)%>%
+  FindClusters()
+```
+
+``` r
+do_DimPlot(gd, label=T, group.by="seurat_clusters", repel=T)&NoAxes()&NoLegend()
+```
+
+<img src="FLASHseq_files/figure-gfm/unnamed-chunk-18-1.png" style="display: block; margin: auto;" />
+
+``` r
+# for celltype annotations see Dotplots etc. in the main figures
+gd@meta.data <- gd@meta.data%>%
+  mutate(cluster=paste0("C", seurat_clusters),
+         celltype=case_when(
+           seurat_clusters=="4" ~ "Cytotoxic",
+           seurat_clusters=="3" ~ "Memory-Like",
+           seurat_clusters=="5" ~ "Cycling",
+           .default="IEL"
+         ),
+         celltype=factor(celltype, levels=c(
+           "IEL", "Memory-Like", "Cytotoxic", "Cycling")
+         ))
+```
 
 # Gene Set Enrichment (GSEA)
 
@@ -162,7 +230,7 @@ library(enrichplot)
 
 Idents(gd) <- "disease"
 
-diffexpgenes <- FindMarkers(gd, ident.1 = "UC", ident.2 = "control", min.pct    = 0.01, logfc.threshold= 0 )
+diffexpgenes <- FindMarkers(gd, ident.1="UC", ident.2="HD", min.pct=0, logfc.threshold=0)
 
 eg <- bitr(rownames(diffexpgenes), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
 eg <- subset(eg,!duplicated(eg$SYMBOL))
@@ -171,17 +239,17 @@ eg$SYMBOL <- NULL
 diffexpgenes$SYMBOL <- rownames(diffexpgenes)
 diffexpgenes <- subset(diffexpgenes,!duplicated(diffexpgenes$SYMBOL))
 row.names(diffexpgenes) <- diffexpgenes$SYMBOL
-diffexpgenes <- merge(diffexpgenes,eg, by = "row.names")
+diffexpgenes <- merge(diffexpgenes,eg, by="row.names")
 fc <- diffexpgenes$avg_log2FC
 names(fc) <- diffexpgenes$ENTREZID
-fc <- sort(fc, decreasing = T)
-y <- gsePathway(fc, verbose=T, organism = "human", seed=1337, pvalueCutoff=1)
-res <- as.data.frame(y)
+fc <- sort(fc, decreasing=T)
+y <- gsePathway(fc, verbose=T, organism="human", seed=1337, pvalueCutoff=.05)
+```
 
-write_csv(res, "../../data_processed/FLASHseq/GSEA.csv")
+``` r
 saveRDS(y, "../../data_processed/FLASHseq/GSEA_res.Rds")
 
-rm(fc, eg, res, y, diffexpgenes)
+rm(fc, eg, y, diffexpgenes)
 ```
 
 # TCR Data
@@ -190,7 +258,7 @@ rm(fc, eg, res, y, diffexpgenes)
 library(scRepertoire)
 
 # Load Contig
-contig <- read_tsv("../../data_raw/FLASHseq/clones.tsv")
+contig <- read_tsv("../../data_raw/FLASHseq/R1/clones.tsv")
 contig <- contig%>%
   unite(tagValueCELL, tagValueCELL0ROW, tagValueCELL0COL, sep="_")
 contig <- list(contig)
@@ -208,15 +276,41 @@ contig[[1]] <- contig[[1]]%>%
 ```
 
 ``` r
+# Load Contig
+contig_2 <- read_tsv("../../data_raw/FLASHseq/R2/clones.tsv")
+contig_2 <- contig_2%>%
+  mutate(tagValueCELL=tagValueCELL0ROW)
+contig_2 <- list(contig_2)
+
+contig_2 <- loadContigs(input=contig_2, format="MiXCR")
+
+# Remove allele variant calls + scoring (*00(###))
+contig_2 <- lapply(contig_2, function(df) {
+  df%>%
+    mutate_at(paste0(c("v", "d", "j", "c"), "_gene"), ~str_replace(., "\\*.*", ""))
+})
+
+contig[[2]] <- contig_2[[1]]%>%
+  filter(chain %in% c("TRG", "TRD"))
+
+rm(contig_2)
+```
+
+``` r
 combined <- combineTCR(contig, filterMulti=T, removeNA=F)
 combined[[1]]$all <- "all"
+combined[[2]]$all <- "all"
+```
 
+``` r
 # Combine with SeuratObject (obj)
-gd <- combineExpression(combined, gd, group.by = "all", prop=F,
-                        cloneSize = c(
+gd <- combineExpression(combined, gd, group.by="all", prop=F,
+                        cloneSize=c(
    Single=1, Rare=5, Medium=10, Large=25, Hyper=25))
+```
 
-# Remove Clones w/ NA values
+``` r
+# Remove CTstrict w/ NA values
 gd@meta.data <- gd@meta.data%>%
   separate(CTstrict, into=c("trg_strict", "trd_strict"), remove=F,
            sep="_")%>%
@@ -233,17 +327,57 @@ gd@meta.data <- gd@meta.data%>%
 ```
 
 ``` r
-# Add TRGV/TRDV Data to SeuratObject
-combined <- combined[[1]]
+gd@meta.data <- gd@meta.data%>%
+  rownames_to_column("PlateWell")%>%
+  
+  mutate(clone_id=row_number())%>%  # Unique identifier for each row
+  
+  # Step 1: Identify distinct TRD-TRG pairs
+  group_by(trd_strict, trg_strict)%>%
+  mutate(shared_clone=dplyr::first(CTstrict[!is.na(CTstrict)]))%>%  # Ensure first() is applied correctly
+  ungroup()%>%
 
-combined <- combined%>%
-  separate(TCR1, into=c("TRGV", "TRGJ", "TRGC"), sep="\\.", remove=F)%>%
-  separate(TCR2, into=c("TRDV", "TRDD", "TRDJ", "TRDC"), sep="\\.", remove=F)
+  # Step 2: Fill missing TRG chains only if there is a unique TRD match
+  group_by(trd_strict)%>%
+  mutate(
+    trg_filled=ifelse(
+      is.na(trg_strict) & n_distinct(na.omit(trg_strict)) == 1, 
+      dplyr::first(na.omit(trg_strict)), 
+      trg_strict
+    )
+  )%>%
+  ungroup()%>%
 
-tcr_meta <- combined%>%
+  # Step 3: Fill missing TRD chains only if there is a unique TRG match
+  group_by(trg_strict)%>%
+  mutate(
+    trd_filled=ifelse(
+      is.na(trd_strict) & n_distinct(na.omit(trd_strict)) == 1, 
+      dplyr::first(na.omit(trd_strict)), 
+      trd_strict
+    )
+  )%>%
+  ungroup()%>%
+
+  # Step 4: Create the final filled clonotype
+  mutate(CTstrict_filled=paste(trd_filled, trg_filled, sep="_"),
+         CTstrict_filled=case_when(
+           str_detect(CTstrict_filled, "NA_NA") ~ NA_character_,
+           .default=CTstrict_filled
+         ))%>%
+    
+    column_to_rownames("PlateWell")
+```
+
+``` r
+# Add TRDV-TRGV subsets
+tcr_meta <- gd@meta.data%>%
+  rownames_to_column("barcode")%>%
+  separate(trg_filled, into=c("TRGV", "TRGJ", "TRGC", "CDR3"), sep="\\.", remove=F)%>%
+  separate(trd_filled, into=c("TRDV", "TRDD", "TRDJ", "TRDC", "CDR3"), sep="\\.", remove=F)%>%
   dplyr::select(barcode, TRGV, TRDV)%>%
   mutate(
-    TRGV=factor(TRGV, levels=c(paste0("TRGV", 2:5), paste0("TRGV", 7:11))),
+    TRGV=factor(TRGV, levels=c(paste0("TRGV", 2:5), "TRGV5P",paste0("TRGV", 7:11))),
     TRDV=factor(TRDV, levels=c("TRDV1", "TRDV2", "TRDV3", "TRAV29/DV5", 
                                "TRAV36/DV7", "TRAV38-2/DV8"))
         )
@@ -254,34 +388,12 @@ gd@meta.data <- gd@meta.data%>%
   column_to_rownames("barcode")%>%
   mutate(TRGV_TRDV=case_when(
     (!is.na(TRGV) & !is.na(TRDV)) ~ paste(TRGV, TRDV, sep="_"),
-    .default = NA_character_
+    .default=NA_character_
   ))
-
-rm(tcr_meta)
 ```
 
 ``` r
-# C2/C3 Clonal Overlaps
-
-# TRG_clonotypes <- gd@meta.data %>%
-#   filter(!is.na(trg_strict) & cluster %in% c("C2", "C3"))%>%
-#   group_by(trg_strict) %>%
-#   filter(n_distinct(cluster) > 1) %>%
-#   arrange(CTstrict)
-# 
-# TRG_clonotypes <- unique(TRG_clonotypes$trg_strict)
-# TRG_clonotypes
-#  
-# TRD_clonotypes <- gd@meta.data %>%
-#   filter(!is.na(trd_strict) & cluster %in% c("C2", "C3"))%>%
-#   group_by(trd_strict) %>%
-#   filter(n_distinct(cluster) > 1) %>%
-#   arrange(CTstrict)
-# 
-# TRD_clonotypes <- unique(TRD_clonotypes$trd_strict)
-# TRD_clonotypes
-# 
-# summary(is.na(gd@meta.data$trd_strict)&is.na(gd@meta.data$trg_strict))
+rm(contig, combined, tcr_meta)
 ```
 
 # Module Scores
@@ -290,20 +402,20 @@ rm(tcr_meta)
 
 ``` r
 # Tissue resident memory T cells
-TRM_genes <- scan("../../genesets/TRM.txt", character(), quote = "")
-gd <- AddModuleScore(gd, features = list(TRM_genes), name = "TRM_signature")
+TRM_genes <- scan("../../genesets/TRM.txt", character(), quote="")
+gd <- AddModuleScore(gd, features=list(TRM_genes), name="TRM_signature")
 
 # Cytokine/Cytotoxic scoring
-cytokine_genes <- scan("../../genesets/cytokine.txt", character(), quote = "")
-cytotoxic_genes <- scan("../../genesets/cytotoxic.txt", character(), quote = "")
+cytokine_genes <- scan("../../genesets/cytokine.txt", character(), quote="")
+cytotoxic_genes <- scan("../../genesets/cytotoxic.txt", character(), quote="")
 cytokine_cytotoxic_genes <- c(cytokine_genes, cytotoxic_genes)
 cytokine_cytotoxic_genes <- base::unique(cytokine_cytotoxic_genes)
-gd <- AddModuleScore(gd, features = list(cytokine_cytotoxic_genes), 
-        name = "cytokine_cytotoxic_signature")
+gd <- AddModuleScore(gd, features=list(cytokine_cytotoxic_genes), 
+        name="cytokine_cytotoxic_signature")
 
 # IFN response
-IFN_genes <- scan("../../genesets/IFN_response.txt", character(), quote = "")
-gd <- AddModuleScore(gd, features = list(IFN_genes), name = "IFN_signature")
+IFN_genes <- scan("../../genesets/IFN_response.txt", character(), quote="")
+gd <- AddModuleScore(gd, features=list(IFN_genes), name="IFN_signature")
 
 rm(TRM_genes, cytokine_genes, cytotoxic_genes, cytokine_cytotoxic_genes, IFN_genes)
 ```
@@ -319,27 +431,27 @@ li_stem <- read_csv("../../genesets/li24_stem_marker.csv")%>%
 # Function for converting mouse to human gene symbols
 human <- useMart("ensembl", dataset="hsapiens_gene_ensembl", 
                   host="https://dec2021.archive.ensembl.org/")
-mouse <- useMart("ensembl", dataset = "mmusculus_gene_ensembl",
+mouse <- useMart("ensembl", dataset="mmusculus_gene_ensembl",
                   host="https://dec2021.archive.ensembl.org/")
 
 mouse_to_human <- function(genes){
-  human_genes = getLDS(attributes = c("mgi_symbol"), filters = "mgi_symbol", 
-                   values = genes, mart = mouse, attributesL = c("hgnc_symbol"), 
-                   martL = human, uniqueRows=T)
+  human_genes=getLDS(attributes=c("mgi_symbol"), filters="mgi_symbol", 
+                   values=genes, mart=mouse, attributesL=c("hgnc_symbol"), 
+                   martL=human, uniqueRows=T)
   human_genes <- unique(human_genes[, 2])
   
   return(human_genes)
 }
 
 # Siddiqui 2019: Intratumoral Tcf1+PD-1+CD8+ T Cells with Stem-like Properties 
-# Promote Tumor Control in Response to Vaccination and Checkpoint Blockade Immunotherapy
+# Promote Tumor HD in Response to Vaccination and Checkpoint Blockade Immunotherapy
 siddiqui19 <- read_xlsx("../../genesets/siddiqui19_stem_vs_effector.xlsx")
 
 siddiqui19_stem <- siddiqui19%>%filter(log2_FC >= 1)%>%pull(gene)%>%
   mouse_to_human()
 
-siddiqui19_effector <- siddiqui19%>%filter(log2_FC <= -1)%>%pull(gene)%>%
-  mouse_to_human()
+# siddiqui19_effector <- siddiqui19%>%filter(log2_FC <= -1)%>%pull(gene)%>%
+#   mouse_to_human()
 
 # Im 2016: Defining CD8+ T cells that provide the proliferative burst after PD-1 therapy
 im16 <- read_tsv("../../genesets/im16_stem_vs_effector.tsv")%>%
@@ -348,8 +460,8 @@ im16 <- read_tsv("../../genesets/im16_stem_vs_effector.tsv")%>%
 im16_stem <- im16%>%filter(logFC >= 1)%>%pull(Gene.symbol)%>%
   mouse_to_human()
 
-im16_effector <- im16%>%filter(logFC <= -1)%>%pull(Gene.symbol)%>%
-  mouse_to_human()
+# im16_effector <- im16%>%filter(logFC <= -1)%>%pull(Gene.symbol)%>%
+#   mouse_to_human()
 
 # Wu 2016: The TCF1-Bcl6 axis counteracts type I interferon to repress
 # exhaustion and maintain T cell stemness
@@ -360,8 +472,8 @@ wu16 <- read_tsv("../../genesets/wu16_stem_vs_effector.tsv")%>%
 wu16_stem <- wu16%>%filter(logFC >= 1)%>%pull(gene)%>%
   mouse_to_human()
 
-wu16_effector <- wu16%>%filter(logFC <= -1)%>%pull(gene)%>%
-  mouse_to_human()
+# wu16_effector <- wu16%>%filter(logFC <= -1)%>%pull(gene)%>%
+#   mouse_to_human()
 
 # Utzschneider 2016: T Cell Factor 1-Expressing Memory-like CD8+ T Cells
 # Sustain the Immune Response to Chronic Viral Infections
@@ -370,8 +482,8 @@ utz16 <- read_xlsx("../../genesets/utzschneider16_stem_vs_effector.xlsx")
 utz16_stem <- utz16%>%filter(logFC >= 1)%>%pull(Gene_Symbol)%>%
   mouse_to_human()
 
-utz16_effector <- utz16%>%filter(logFC <= -1)%>%pull(Gene_Symbol)%>%
-  mouse_to_human()
+# utz16_effector <- utz16%>%filter(logFC <= -1)%>%pull(Gene_Symbol)%>%
+#   mouse_to_human()
 ```
 
 ``` r
@@ -383,32 +495,37 @@ scoring <- function(object, genes, name){
 }
 
 scoring_list <- list(
-  siddiqui19_stem = siddiqui19_stem, siddiqui19_effector = siddiqui19_effector,
-  im16_stem = im16_stem, im16_effector = im16_effector,
-  wu16_stem = wu16_stem, wu16_effector = wu16_effector,
-  utz16_stem = utz16_stem, utz16_effector = utz16_effector,
-  li_stem = li_stem
+  siddiqui19_stem=siddiqui19_stem, 
+  #siddiqui19_effector=siddiqui19_effector,
+  im16_stem=im16_stem, 
+  #im16_effector=im16_effector,
+  wu16_stem=wu16_stem, 
+  #wu16_effector=wu16_effector,
+  utz16_stem=utz16_stem, 
+  #utz16_effector=utz16_effector,
+  li_stem=li_stem
 )
 
 for (score in names(scoring_list)){
   gd <- scoring(gd, scoring_list[[score]], score)
 }
 
-rm(list=setdiff(ls(), c("combined", "contig", "gd")))
+rm(list=setdiff(ls(), c("gd")))
 ```
 
-## Genesets for Fig 3
+## Genesets for Fig 5d+e
 
 ``` r
-gd <- SetIdent(gd, value="TRGV_TRDV")
+Idents(gd) <- "TRGV_TRDV"
 
 TRGV4_TRDV1_markers <- FindMarkers(gd, ident.1="TRGV4_TRDV1", only.pos=T,
-  min.pct=.2, logfc.threshold=1)%>%filter(p_val_adj<0.05)%>%
+  min.pct=.1, logfc.threshold=0.5)%>%
+  filter(p_val_adj<0.05)%>%
   rownames_to_column("gene")
 write.csv(TRGV4_TRDV1_markers, "../../genesets/Vg4Vd1_genes.csv")
 
 TRGV9_TRDV2_markers <- FindMarkers(gd, ident.1="TRGV9_TRDV2", only.pos=T,
-  min.pct=.2, logfc.threshold=1)%>%
+  min.pct=.1, logfc.threshold=.5)%>%
   filter(p_val_adj < 0.05)%>%rownames_to_column("gene")
 write.csv(TRGV9_TRDV2_markers, "Vg9Vd2_genes.csv")
 
@@ -418,7 +535,37 @@ rm(TRGV4_TRDV1_markers, TRGV9_TRDV2_markers)
 # SCENIC
 
 ``` r
-scenic <- read_csv("../../data_processed/FLASHseq/pyscenic_output.csv")
+library(arrow)
+
+feather_genes <- read_feather(
+  "~/reference_human/pySCENIC/feather/hg38_10kbp_up_10kbp_down_full_tx_v10_clust.genes_vs_motifs.rankings.feather")
+feather_genes <- colnames(feather_genes)
+```
+
+``` r
+# Export Count Matrix for pySCENIC (run through CLI, see bash script)
+
+mtx <- subset(gd, features=rownames(gd)[rownames(gd) %in% feather_genes])%>%
+  GetAssayData(assay="RNA", layer="counts")
+
+Matrix::writeMM(mtx, "../../data_processed/FLASHseq/gex.mtx")
+```
+
+    ## NULL
+
+``` r
+write_tsv(data.frame(cells=colnames(mtx)), col_names=F, "../../data_processed/FLASHseq/cells.tsv")
+write_tsv(data.frame(cells=rownames(mtx)), col_names=F, "../../data_processed/FLASHseq/genes.tsv")
+
+rm(mtx, feather_genes)
+```
+
+``` r
+# Run mtx_to_loom.sh and pyscenic.sh to get pyscenic.csv file (AUCell Scores)
+```
+
+``` r
+scenic <- read_csv("../../data_processed/FLASHseq/mtx23k_AUC_001_NES_2/auc.csv")
 scenic <- as.matrix(scenic)
 rownames(scenic) <- scenic[,1]
 scenic <- scenic[, -1]
@@ -433,19 +580,24 @@ rm(scenic)
 ``` r
 DefaultAssay(gd) <- "scenic"
 
-gd <- gd%>%ScaleData()%>%RunPCA(features=rownames(gd), reduction.name="scenic_pca")
+gd <- gd%>%
+  ScaleData(vars.to.regress=c("percent.mt", "nCount_RNA"))%>%
+  RunPCA(reduction.name="scenic_pca", features=rownames(gd))
+```
 
+``` r
+ElbowPlot(gd, 50, reduction="scenic_pca")
+```
+
+<img src="FLASHseq_files/figure-gfm/unnamed-chunk-39-1.png" style="display: block; margin: auto;" />
+
+``` r
+gd <- gd%>%RunUMAP(reduction="scenic_pca", reduction.name="scenic_umap",
+                   dims=1:12)
+```
+
+``` r
 DefaultAssay(gd) <- "RNA"
-```
-
-``` r
-ElbowPlot(gd, reduction="scenic_pca", 50)
-```
-
-<img src="FLASHseq_files/figure-gfm/unnamed-chunk-22-1.png" style="display: block; margin: auto;" />
-
-``` r
-gd <- RunUMAP(gd, reduction.name="scenic_umap", reduction="scenic_pca", dims=1:20)
 ```
 
 # Saving Object
@@ -484,17 +636,18 @@ sessionInfo()
     ## [8] base     
     ## 
     ## other attached packages:
-    ##  [1] scRepertoire_2.0.8     org.Hs.eg.db_3.19.1    AnnotationDbi_1.66.0  
-    ##  [4] IRanges_2.38.0         S4Vectors_0.42.0       Biobase_2.64.0        
-    ##  [7] BiocGenerics_0.50.0    enrichplot_1.24.0      ReactomePA_1.48.0     
-    ## [10] clusterProfiler_4.12.0 AUCell_1.26.0          SCENIC_1.3.1          
-    ## [13] readxl_1.4.3           biomaRt_2.60.0         ggpubr_0.6.0          
-    ## [16] SCpubr_2.0.2           scCustomize_2.1.2      Seurat_5.1.0          
-    ## [19] SeuratObject_5.0.2     sp_2.1-4               Matrix_1.6-5          
-    ## [22] data.table_1.15.4      lubridate_1.9.3        forcats_1.0.0         
-    ## [25] stringr_1.5.1          dplyr_1.1.4            purrr_1.0.2           
-    ## [28] readr_2.1.5            tidyr_1.3.1            tibble_3.2.1          
-    ## [31] ggplot2_3.5.1          tidyverse_2.0.0       
+    ##  [1] arrow_18.1.0.1         future.apply_1.11.2    future_1.33.2         
+    ##  [4] scRepertoire_2.0.8     org.Hs.eg.db_3.19.1    AnnotationDbi_1.66.0  
+    ##  [7] IRanges_2.38.0         S4Vectors_0.42.0       Biobase_2.64.0        
+    ## [10] BiocGenerics_0.50.0    enrichplot_1.24.0      ReactomePA_1.48.0     
+    ## [13] clusterProfiler_4.12.0 AUCell_1.26.0          SCENIC_1.3.1          
+    ## [16] readxl_1.4.3           biomaRt_2.60.0         ggpubr_0.6.0          
+    ## [19] SCpubr_2.0.2           scCustomize_2.1.2      Seurat_5.1.0          
+    ## [22] SeuratObject_5.0.2     sp_2.1-4               Matrix_1.6-5          
+    ## [25] data.table_1.15.4      lubridate_1.9.3        forcats_1.0.0         
+    ## [28] stringr_1.5.1          dplyr_1.1.4            purrr_1.0.2           
+    ## [31] readr_2.1.5            tidyr_1.3.1            tibble_3.2.1          
+    ## [34] ggplot2_3.5.1          tidyverse_2.0.0       
     ## 
     ## loaded via a namespace (and not attached):
     ##   [1] R.methodsS3_1.8.2           vroom_1.6.5                
@@ -535,73 +688,72 @@ sessionInfo()
     ##  [71] snakecase_0.11.1            later_1.3.2                
     ##  [73] viridis_0.6.5               ggtree_3.12.0              
     ##  [75] lattice_0.22-5              spatstat.geom_3.2-9        
-    ##  [77] future.apply_1.11.2         SparseM_1.81               
-    ##  [79] scattermore_1.2             XML_3.99-0.16.1            
-    ##  [81] shadowtext_0.1.3            cowplot_1.1.3              
-    ##  [83] matrixStats_1.3.0           RcppAnnoy_0.0.22           
-    ##  [85] pillar_1.9.0                nlme_3.1-165               
-    ##  [87] compiler_4.4.0              RSpectra_0.16-1            
-    ##  [89] stringi_1.8.4               tensor_1.5                 
-    ##  [91] SummarizedExperiment_1.34.0 plyr_1.8.9                 
-    ##  [93] crayon_1.5.2                abind_1.4-5                
-    ##  [95] ggdendro_0.2.0              gridGraphics_0.5-1         
-    ##  [97] graphlayouts_1.1.1          bit_4.0.5                  
-    ##  [99] fastmatch_1.1-4             codetools_0.2-19           
-    ## [101] paletteer_1.6.0             plotly_4.10.4              
-    ## [103] mime_0.12                   splines_4.4.0              
-    ## [105] circlize_0.4.16             Rcpp_1.0.12                
-    ## [107] fastDummies_1.7.3           quantreg_5.97              
-    ## [109] dbplyr_2.5.0                sparseMatrixStats_1.16.0   
-    ## [111] HDO.db_0.99.1               cellranger_1.1.0           
-    ## [113] knitr_1.46                  blob_1.2.4                 
-    ## [115] utf8_1.2.4                  fs_1.6.4                   
-    ## [117] evd_2.3-7                   listenv_0.9.1              
-    ## [119] DelayedMatrixStats_1.26.0   gsl_2.1-8                  
-    ## [121] ggsignif_0.6.4              ggplotify_0.1.2            
-    ## [123] statmod_1.5.0               tzdb_0.4.0                 
-    ## [125] tweenr_2.0.3                pkgconfig_2.0.3            
-    ## [127] tools_4.4.0                 cachem_1.1.0               
-    ## [129] RSQLite_2.3.6               viridisLite_0.4.2          
-    ## [131] DBI_1.2.2                   graphite_1.50.0            
-    ## [133] fastmap_1.2.0               rmarkdown_2.27             
-    ## [135] scales_1.3.0                grid_4.4.0                 
-    ## [137] ica_1.0-3                   broom_1.0.6                
-    ## [139] patchwork_1.2.0             ggprism_1.0.5              
-    ## [141] dotCall64_1.1-1             graph_1.82.0               
-    ## [143] carData_3.0-5               RANN_2.6.1                 
-    ## [145] farver_2.1.2                tidygraph_1.3.1            
-    ## [147] scatterpie_0.2.2            yaml_2.3.8                 
-    ## [149] VGAM_1.1-11                 MatrixGenerics_1.16.0      
-    ## [151] cli_3.6.2                   leiden_0.4.3.1             
-    ## [153] lifecycle_1.0.4             uwot_0.2.2                 
-    ## [155] presto_1.0.0                backports_1.4.1            
-    ## [157] BiocParallel_1.38.0         annotate_1.82.0            
-    ## [159] rjson_0.2.21                timechange_0.3.0           
-    ## [161] gtable_0.3.5                ggridges_0.5.6             
-    ## [163] progressr_0.14.0            limma_3.60.2               
-    ## [165] cubature_2.1.0              parallel_4.4.0             
-    ## [167] ape_5.8                     jsonlite_1.8.8             
-    ## [169] RcppHNSW_0.6.0              bit64_4.0.5                
-    ## [171] assertthat_0.2.1            Rtsne_0.17                 
-    ## [173] yulab.utils_0.1.4           spatstat.utils_3.0-4       
-    ## [175] highr_0.10                  GOSemSim_2.30.0            
-    ## [177] R.utils_2.12.3              truncdist_1.0-2            
-    ## [179] lazyeval_0.2.2              shiny_1.8.1.1              
-    ## [181] htmltools_0.5.8.1           GO.db_3.19.1               
-    ## [183] iNEXT_3.0.1                 sctransform_0.4.1          
-    ## [185] rappdirs_0.3.3              glue_1.7.0                 
-    ## [187] spam_2.10-0                 httr2_1.0.1                
-    ## [189] XVector_0.44.0              treeio_1.28.0              
-    ## [191] gridExtra_2.3               igraph_2.0.3               
-    ## [193] R6_2.5.1                    SingleCellExperiment_1.26.0
-    ## [195] labeling_0.4.3              cluster_2.1.6              
-    ## [197] stringdist_0.9.12           aplot_0.2.2                
-    ## [199] GenomeInfoDb_1.40.0         DelayedArray_0.30.1        
-    ## [201] tidyselect_1.2.1            vipor_0.4.7                
-    ## [203] ggforce_0.4.2               xml2_1.3.6                 
-    ## [205] car_3.1-2                   future_1.33.2              
-    ## [207] munsell_0.5.1               KernSmooth_2.23-24         
-    ## [209] htmlwidgets_1.6.4           fgsea_1.30.0               
-    ## [211] RColorBrewer_1.1-3          rlang_1.1.3                
-    ## [213] spatstat.sparse_3.0-3       spatstat.explore_3.2-7     
-    ## [215] fansi_1.0.6                 beeswarm_0.4.0
+    ##  [77] SparseM_1.81                scattermore_1.2            
+    ##  [79] XML_3.99-0.16.1             shadowtext_0.1.3           
+    ##  [81] cowplot_1.1.3               matrixStats_1.3.0          
+    ##  [83] RcppAnnoy_0.0.22            pillar_1.9.0               
+    ##  [85] nlme_3.1-165                compiler_4.4.0             
+    ##  [87] RSpectra_0.16-1             stringi_1.8.4              
+    ##  [89] tensor_1.5                  SummarizedExperiment_1.34.0
+    ##  [91] plyr_1.8.9                  crayon_1.5.2               
+    ##  [93] abind_1.4-5                 ggdendro_0.2.0             
+    ##  [95] gridGraphics_0.5-1          graphlayouts_1.1.1         
+    ##  [97] bit_4.0.5                   fastmatch_1.1-4            
+    ##  [99] codetools_0.2-19            paletteer_1.6.0            
+    ## [101] plotly_4.10.4               mime_0.12                  
+    ## [103] splines_4.4.0               circlize_0.4.16            
+    ## [105] Rcpp_1.0.12                 fastDummies_1.7.3          
+    ## [107] quantreg_5.97               dbplyr_2.5.0               
+    ## [109] sparseMatrixStats_1.16.0    HDO.db_0.99.1              
+    ## [111] cellranger_1.1.0            knitr_1.46                 
+    ## [113] blob_1.2.4                  utf8_1.2.4                 
+    ## [115] fs_1.6.4                    evd_2.3-7                  
+    ## [117] listenv_0.9.1               DelayedMatrixStats_1.26.0  
+    ## [119] gsl_2.1-8                   ggsignif_0.6.4             
+    ## [121] ggplotify_0.1.2             statmod_1.5.0              
+    ## [123] tzdb_0.4.0                  tweenr_2.0.3               
+    ## [125] pkgconfig_2.0.3             tools_4.4.0                
+    ## [127] cachem_1.1.0                RSQLite_2.3.6              
+    ## [129] viridisLite_0.4.2           DBI_1.2.2                  
+    ## [131] graphite_1.50.0             fastmap_1.2.0              
+    ## [133] rmarkdown_2.27              scales_1.3.0               
+    ## [135] grid_4.4.0                  ica_1.0-3                  
+    ## [137] broom_1.0.6                 patchwork_1.2.0            
+    ## [139] ggprism_1.0.5               dotCall64_1.1-1            
+    ## [141] graph_1.82.0                carData_3.0-5              
+    ## [143] RANN_2.6.1                  farver_2.1.2               
+    ## [145] tidygraph_1.3.1             scatterpie_0.2.2           
+    ## [147] yaml_2.3.8                  VGAM_1.1-11                
+    ## [149] MatrixGenerics_1.16.0       cli_3.6.2                  
+    ## [151] leiden_0.4.3.1              lifecycle_1.0.4            
+    ## [153] uwot_0.2.2                  presto_1.0.0               
+    ## [155] backports_1.4.1             BiocParallel_1.38.0        
+    ## [157] annotate_1.82.0             rjson_0.2.21               
+    ## [159] timechange_0.3.0            gtable_0.3.5               
+    ## [161] ggridges_0.5.6              progressr_0.14.0           
+    ## [163] limma_3.60.2                cubature_2.1.0             
+    ## [165] parallel_4.4.0              ape_5.8                    
+    ## [167] jsonlite_1.8.8              RcppHNSW_0.6.0             
+    ## [169] bit64_4.0.5                 assertthat_0.2.1           
+    ## [171] Rtsne_0.17                  yulab.utils_0.1.4          
+    ## [173] spatstat.utils_3.0-4        highr_0.10                 
+    ## [175] GOSemSim_2.30.0             R.utils_2.12.3             
+    ## [177] truncdist_1.0-2             lazyeval_0.2.2             
+    ## [179] shiny_1.8.1.1               htmltools_0.5.8.1          
+    ## [181] GO.db_3.19.1                iNEXT_3.0.1                
+    ## [183] sctransform_0.4.1           rappdirs_0.3.3             
+    ## [185] glue_1.7.0                  spam_2.10-0                
+    ## [187] httr2_1.0.1                 XVector_0.44.0             
+    ## [189] treeio_1.28.0               gridExtra_2.3              
+    ## [191] igraph_2.0.3                R6_2.5.1                   
+    ## [193] SingleCellExperiment_1.26.0 labeling_0.4.3             
+    ## [195] cluster_2.1.6               stringdist_0.9.12          
+    ## [197] aplot_0.2.2                 GenomeInfoDb_1.40.0        
+    ## [199] DelayedArray_0.30.1         tidyselect_1.2.1           
+    ## [201] vipor_0.4.7                 ggforce_0.4.2              
+    ## [203] xml2_1.3.6                  car_3.1-2                  
+    ## [205] munsell_0.5.1               KernSmooth_2.23-24         
+    ## [207] htmlwidgets_1.6.4           fgsea_1.30.0               
+    ## [209] RColorBrewer_1.1-3          rlang_1.1.3                
+    ## [211] spatstat.sparse_3.0-3       spatstat.explore_3.2-7     
+    ## [213] fansi_1.0.6                 beeswarm_0.4.0

@@ -16,6 +16,7 @@ library(tidyverse)
 library(data.table)
 library(readxl)
 library(biomaRt)
+library(clusterProfiler)
 library(ReactomePA)
 
 
@@ -524,7 +525,7 @@ rm(chol_genes, meva_genes)
 ##-----------------------------------------------------------------------------
 Idents(entero) <- "disease"
 
-diffexpgenes <- FindMarkers(entero, ident.1 = "UC", ident.2 = "HD", min.pct	= 0.01, logfc.threshold= 0 )
+diffexpgenes <- FindMarkers(entero, ident.1="UC", ident.2="HD", min.pct=0, logfc.threshold=0)
 
 eg <- bitr(rownames(diffexpgenes), fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
 eg <- subset(eg,!duplicated(eg$SYMBOL))
@@ -533,11 +534,11 @@ eg$SYMBOL <- NULL
 diffexpgenes$SYMBOL <- rownames(diffexpgenes)
 diffexpgenes <- subset(diffexpgenes,!duplicated(diffexpgenes$SYMBOL))
 row.names(diffexpgenes) <- diffexpgenes$SYMBOL
-diffexpgenes <- merge(diffexpgenes,eg, by = "row.names")
+diffexpgenes <- merge(diffexpgenes,eg, by="row.names")
 fc <- diffexpgenes$avg_log2FC
 names(fc) <- diffexpgenes$ENTREZID
-fc <- sort(fc, decreasing = T)
-y <- gsePathway(fc, verbose=T, organism = "human", seed=1337, pvalueCutoff=1)
+fc <- sort(fc, decreasing=T)
+y <- gsePathway(fc, verbose=F, organism="human", seed=1337, pvalueCutoff=1)
 res <- as.data.frame(y)
 
 write_csv(res, "../../data_processed/Li21_Smillie19_Integrated/GSEA.csv")

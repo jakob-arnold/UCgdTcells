@@ -57,6 +57,9 @@ purl.R
 *.tsv*
 meta.data.txt
 **/genesets/
+*.fcs
+data_processed/
+data_raw/
 
 
 
