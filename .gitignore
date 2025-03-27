@@ -60,6 +60,7 @@ meta.data.txt
 *.fcs
 data_processed/
 data_raw/
+*.sh
 
 
 
