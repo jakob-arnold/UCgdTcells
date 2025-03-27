@@ -295,12 +295,12 @@ cytokine_cytotoxic_genes <- unique(cytokine_cytotoxic_genes)
 gd <- AddModuleScore(gd, features=list(cytokine_cytotoxic_genes), name="cyto")
 
 # FLASHseq gd T Subsets
-Vg4Vd1 <- read.csv("genesets/Vg4Vd1_vs_all.csv")%>%
+Vg4Vd1 <- read.csv("genesets/Vg4Vd1_genes.csv")%>%
   filter(!gene %in% c("TRGV4", "TRDV1"))%>%pull(gene)
 
 gd <- AddModuleScore(gd, features = list(Vg4Vd1),name="Vg4Vd1_")
 
-Vg9Vd2 <- read.csv("genesets/Vg9Vd2_vs_all.csv")%>%
+Vg9Vd2 <- read.csv("genesets/Vg9Vd2_genes.csv")%>%
   filter(!gene %in% c("TRGV9", "TRDV2"))%>%pull(gene)
 
 gd <- AddModuleScore(gd, features = list(Vg9Vd2), name="Vg9Vd2_")
@@ -541,8 +541,15 @@ fc <- sort(fc, decreasing=T)
 y <- gsePathway(fc, verbose=F, organism="human", seed=1337, pvalueCutoff=1)
 res <- as.data.frame(y)
 
+
+
+##-----------------------------------------------------------------------------
 write_csv(res, "../../data_processed/Li21_Smillie19_Integrated/GSEA.csv")
 saveRDS(y, "../../data_processed/Li21_Smillie19_Integrated/GSEA.Rds")
+
+diffexpgenes%>%
+  dplyr::filter(p_val_adj<0.05)%>%
+  write.csv("Li21Sm19_Entero_UCvHD_Marker_onlySignificant.csv")
 
 rm(fc, eg, res, y, diffexpgenes)
 

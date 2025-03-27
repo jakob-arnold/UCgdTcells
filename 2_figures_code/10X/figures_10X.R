@@ -22,6 +22,18 @@ vd1 <- readRDS("../../data_processed/10X/Vd1.Rds")
 vd2 <- readRDS("../../data_processed/10X/Vd2.Rds")
 
 
+##-----------------------------------------------------------------------------
+FindAllMarkers(vd1, only.pos=T)%>%
+  filter(p_val_adj<0.05)%>%
+  write.csv("Vd1_All_Markers_byCluster.csv")
+
+##-----------------------------------------------------------------------------
+FindAllMarkers(vd2, only.pos=T)%>%
+  filter(p_val_adj<0.05)%>%
+  write.csv("Vd2_All_Markers_byCluster.csv")
+
+
+
 # Parameters
 ##-----------------------------------------------------------------------------
 pal_clu <- c(
@@ -117,10 +129,12 @@ dev.off()
 
 
 ##-----------------------------------------------------------------------------
-genes <- c("GZMA", "GZMB", "GZMM", "GZMK", "PRF1", "GNLY", "FCGR3A", "EOMES",
-           "KIR2DL1", "NKG7", "ZEB2", "ZNF683", "SELL", "IL7R", "CD27", "CD5", "CCR7",
-           "LEF1", "TCF7", "ITGA6", "PDCD1", "SOX4", "TOX", 
-           "CD74", "HLA-DRB1", "HLA-DRA")
+vd1$cluster <- factor(vd1$cluster, levels=c(
+  "C8","C0","C1","C3","C6","C2","C4","C5", "C7"
+))
+
+genes <- c("GZMB", "PRF1", "TBX21", "CD74", "HLA-DRB1", "HLA-DRA", "ZNF683", "SOX4",
+           "TCF7", "LEF1", "IL7R", "CD27", "CCR7", "SELL", "MKI67")
 
 p <- DotPlot(vd1, group.by="cluster", features=genes)+
   scale_color_gradient2(low="navy", mid="beige", high="red3", midpoint=0)+
@@ -148,10 +162,10 @@ p_1 <- ggplot(p_1, aes(x=cluster, fill=disease))+
   guides(fill=guide_legend(ncol=1, byrow=T))+
   geom_hline(yintercept=.5, linetype="dashed", linewidth=.75)
 
-p/p_1+plot_layout(heights = c(1, 0.05))
+p/p_1+plot_layout(heights = c(1, 0.1))
 
-ggsave("../figures/10X_Vd1_DotPlot_byCluster.pdf", width=4.1, height=6.25)
-ggsave("../figures/10X_Vd1_DotPlot_byCluster.png", dpi=600, bg="white", width=4.1, height=6.25)
+ggsave("../figures/10X_Vd1_DotPlot_byCluster.pdf", width=4.1, height=4.75)
+ggsave("../figures/10X_Vd1_DotPlot_byCluster.png", dpi=600, bg="white", width=4.1, height=4.75)
 
 rm(p, p_1, genes)
 
@@ -267,12 +281,15 @@ dev.off()
 
 
 ##-----------------------------------------------------------------------------
-genes <- c("GZMA", "GZMB", "GZMM", "GZMK", "PRF1", "GNLY", "FCGR3A", "EOMES",
-           "KIR2DL1", "NKG7", "ZEB2", "SELL", "IL7R", "CD27", "CD5", "CCR7",
-           "LEF1", "TCF7", "ITGA6", "PDCD1", "SOX4", "TOX", 
-            "RORC", "IL23R", "CCR6", "CXCR6", "SCART1", "BLK")
+vd2$cluster <- factor(vd2$cluster,
+                      levels=c("C0","C1","C4","C5","C8","C9","C2","C3","C7","C6"))
 
-p <- DotPlot(vd2, group.by="cluster", features=genes, dot.min=0.0001)+
+genes <- c("GZMB", "GNLY", "PRF1", "NKG7", "TCF7", "IL7R", "GZMK", "LEF1", 
+           "CD27", "CCR7", "S1PR1", "SELL", "RORC", "IL23R", "CCR6", "CXCR6", 
+           "SCART1", "BLK"
+           )
+
+p <- DotPlot(vd2, group.by="cluster", features=genes)+
   scale_color_gradient2(low="navy", mid="beige", high="red3",, midpoint=0)+
   guides(color=guide_colorbar(frame.colour="black", frame.linewidth=.5, order=1,
           ticks.colour="black", ticks.linewidth=.5, title="Avg.\nScal.\nExpr."),
@@ -298,10 +315,10 @@ p_1 <- ggplot(p_1, aes(x=cluster, fill=disease))+
   guides(fill=guide_legend(ncol=1, byrow=T))+
   geom_hline(yintercept=.5, linetype="dashed", linewidth=.75)
 
-p/p_1+plot_layout(heights = c(1, 0.05))
+p/p_1+plot_layout(heights = c(1, 0.1))
 
-ggsave("../figures/10X_Vd2_DotPlot_byCluster.pdf", width=4.1, height=6.25)
-ggsave("../figures/10X_Vd2_DotPlot_byCluster.png", dpi=1600, bg="white", width=4.1, height=6.25)
+ggsave("../figures/10X_Vd2_DotPlot_byCluster.pdf", width=4.1, height=5.5)
+ggsave("../figures/10X_Vd2_DotPlot_byCluster.png", dpi=1600, bg="white", width=4.1, height=5.5)
 
 rm(p, p_1, genes)
 
@@ -341,12 +358,6 @@ ggsave("../figures/10X_Vd2_BarPlot_ClusterByTRGV.png",dpi=600, width=3.75, heigh
 
 ##-----------------------------------------------------------------------------
 sessionInfo()
-
-
-
-
-
-
 
 
 

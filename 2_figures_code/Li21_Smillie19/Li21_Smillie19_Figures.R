@@ -20,6 +20,15 @@ entero <- readRDS("../../data_processed/Li21_Smillie19_Integrated/enterocytes.Rd
 gd <- readRDS("../../data_processed/Li21_Smillie19_Integrated/gdTcells.Rds")
 
 
+# Cluster Marker
+##-----------------------------------------------------------------------------
+gd%>%
+  FindAllMarkers(only.pos=T)%>%
+  filter(p_val_adj<0.05)%>%
+  write.csv("Li21Sm19_Marker_AllClusters.csv")
+
+
+
 # Palettes/Parameters
 ##-----------------------------------------------------------------------------
 pal_dis <- c("HD"="#008B8B","UC"="#8B0000")
@@ -139,22 +148,26 @@ rm(p, p_1, genes)
 ##-----------------------------------------------------------------------------
 p <- VlnPlot_scCustom(gd, sort=T, colors_use=pal_clu, group.by="cluster",
                       pt.size=0, num_columns=1, add.noise=F,
-                      features=c("Vg4Vd1_1", "Vg9Vd2_1", "TRM1","cyto1"))&
+                      features=c("Vg4Vd1_1", "Vg9Vd2_1", "cyto1", "li_stem1"))&
   scale_y_continuous(expand=expansion(c(0.05, 0.05)))&
   geom_boxplot(width=.3, fill="white", outlier.shape=NA, coef=0, color="black")&
+  theme(plot.subtitle=element_text(face="italic"),
+        plot.title=element_text(hjust=0, size=15))&
   labs(x=NULL)
   
 p[[1]] <- p[[1]]+ggtitle("TRGV4-TRDV1 Signature")
-p[[3]] <- p[[3]]+ggtitle("Tissue Residency\nSignature")
 p[[2]] <- p[[2]]+ggtitle("TRGV9-TRDV2 Signature")
-p[[4]] <- p[[4]]+ggtitle("Cytotoxicity and Cytokine\nProduction Signature")
+p[[3]] <- p[[3]]+ggtitle("Cytotoxicity and Cytokine\nProduction Signature")
+p[[4]] <- p[[4]]+labs(title="Stem-Like Signature",
+                      subtitle="Li et al., 2024")
+
 
 for (i in seq_along(p)){
   p[[i]][["layers"]][[1]][["stat_params"]][["trim"]] <- FALSE
 }
 p
 
-ggsave("../figures/LiSm_gdT_VlnPlots.pdf", width=3.25, height=10)
+ggsave("../figures/LiSm_gdT_VlnPlots.pdf", width=3.25, height=9)
 ggsave("../figures/LiSm_gdT_VlnPlots.png", dpi=600, width=3.25, height=10)
 rm(p, i)
 
@@ -222,7 +235,7 @@ ggsave("../figures/LiSm_gd_BarPlot_ClusterByDonor.png", width=2.5, height=3, dpi
 
 # Enterocytes
 ##-----------------------------------------------------------------------------
-do_DimPlot(entero, group.by="disease", pt.size=.25)+
+do_DimPlot(entero, group.by="disease", pt.size=.25, border.size=3)+
   scale_color_manual(values=pal_dis, labels=c("UC"="UC (A)"))+
   theme(legend.position=c(.8, .95))
 
@@ -366,7 +379,7 @@ gsea <- readRDS("../../data_processed/Li21_Smillie19_Integrated/GSEA.Rds")
 # TCA
 gseaplot(gsea, geneSetID="R-HSA-71403", by="runningScore",
          title=gsea@result%>%filter(ID=="R-HSA-71403")%>%pull(Description))+
-  annotate(geom="text", x=8500, y=.15, label=paste0("p = ",
+  annotate(geom="text", x=7500, y=.15, label=paste0("p = ",
     gsea@result%>%filter(ID=="R-HSA-71403")%>%pull(p.adjust)%>%signif(2)),
     size=5)+
   scale_x_continuous(expand=expansion(mult=c(0.05, .1)))+
@@ -378,7 +391,7 @@ ggsave("../figures/LiSm_entero_GSEA_TCA.png", dpi=600,  width=6, height=4)
 # Mito Fatty
 gseaplot(gsea, geneSetID="R-HSA-77289", by="runningScore",
          title=gsea@result%>%filter(ID=="R-HSA-77289")%>%pull(Description))+
-  annotate(geom="text", x=8500, y=.15, label=paste0("p = ",
+  annotate(geom="text", x=7500, y=.15, label=paste0("p = ",
     gsea@result%>%filter(ID=="R-HSA-77289")%>%pull(p.adjust)%>%signif(2)),
     size=5)+
   scale_x_continuous(expand=expansion(mult=c(0.05, .1)))+
@@ -429,7 +442,6 @@ ggsave("../figures/LiSm_entero_BarPlot_DiseaseCohortByDonor.png", width=2, heigh
 
 ##-----------------------------------------------------------------------------
 sessionInfo()
-
 
 
 
