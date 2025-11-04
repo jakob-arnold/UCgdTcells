@@ -40,7 +40,7 @@ pal_trgv <-c("#56B4E9", "#999999", "#CC79A7", "#D55E00", "#009E73", "#F0E442",
 pal_trgv <- setNames(pal_trgv, levels(vd1$TRGV))
 ```
 
-# Figure 7
+# Figure 8
 
 ## A-C
 

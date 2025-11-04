@@ -36,7 +36,7 @@ entero_pb <- AggregateExpression(entero, group.by = c("disease", "ID"),
                                  return.seurat=T)
 
 
-# Fig 5
+# Fig 6
 ##ABH
 ##-----------------------------------------------------------------------------
 # a

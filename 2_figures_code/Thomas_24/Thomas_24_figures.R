@@ -19,7 +19,7 @@ entero <- readRDS("../../data_processed/Thomas_24/thomas24_entero_pb.Rds")
 gd <- readRDS("../../data_processed/Thomas_24/thomas24_gd_pb.Rds")
 
 
-# Figure 6
+# Figure 7
 ##-----------------------------------------------------------------------------
 # Blank Canvas
 abc <- ggarrange(NULL, NULL, NULL,
