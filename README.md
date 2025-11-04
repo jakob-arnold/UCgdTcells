@@ -6,6 +6,9 @@ This repository contains the code used for creating all scRNA-seq and flow cytom
 
 ## Overview of Figures
 Fig. 1, Fig. 3, Fig.5, Fig. S1, Fig.S3, Fig.S5: `2_figures_code/FLASHseq/`
+
 Fig.6, Fig. S6: `2_figures_code/Li21_Smillie19/`
+
 Fig. 7: `2_figures_code/Thomas_24/`
+
 Fig. 8, Fig. S8: `2_figures_code/PBMC`
