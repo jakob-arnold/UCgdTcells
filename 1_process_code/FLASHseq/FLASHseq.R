@@ -124,6 +124,8 @@ p
 ggsave("../../2_figures_code/figures/FLASHseq_VlnPlots_QC.pdf", width=6.5, height=3.5)
 ggsave("../../2_figures_code/figures/FLASHseq_VlnPlots_QC.png", dpi=600, width=6.5, height=3.5)
 
+saveRDS(p, "../../data_processed/FLASHseq/qc_plots.Rds")
+
 rm(p)
 
 
@@ -232,7 +234,7 @@ saveRDS(y, "../../data_processed/FLASHseq/GSEA_res.Rds")
 
 diffexpgenes%>%
   dplyr::filter(p_val_adj<0.05)%>%
-  write.csv("FLASHseq_Marker_UCvHD_OnlySignficant.csv")
+  write.csv("../../genesets/FLASHseq_Marker_UCvHD_OnlySignficant.csv")
 
 rm(fc, eg, y, diffexpgenes)
 
@@ -542,7 +544,7 @@ rm(mtx, feather_genes)
 
 
 ##-----------------------------------------------------------------------------
-scenic <- read_csv("../../data_processed/FLASHseq/mtx23k_AUC_001_NES_2/auc.csv")
+scenic <- read_csv("../../data_processed/FLASHseq/pySCENIC/auc.csv")
 scenic <- as.matrix(scenic)
 rownames(scenic) <- scenic[,1]
 scenic <- scenic[, -1]
@@ -575,10 +577,19 @@ gd <- gd%>%RunUMAP(reduction="scenic_pca", reduction.name="scenic_umap",
 DefaultAssay(gd) <- "RNA"
 
 
-
 # Saving Object
 ##-----------------------------------------------------------------------------
 saveRDS(gd, "../../data_processed/FLASHseq/gd.Rds")
+
+
+# Marker
+##-----------------------------------------------------------------------------
+# Idents(gd) <- "celltype"
+# 
+# marker_celltype <- gd%>%
+#   FindAllMarkers(only.pos=T, logfc.threshold=1)%>%
+#   filter(p_val_adj<0.05)
+
 
 
 # Session Info

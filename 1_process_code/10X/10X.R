@@ -1,5 +1,5 @@
 ---
-title: "10X 5P scRNA-seq of gd T Cells: Processing"
+title: "10X 5P scRNA-seq of gd T Cells (PBMC): Processing"
 output: github_document
 ---
 
@@ -90,9 +90,6 @@ meta_function <- function(seurat_obj) {
       batch=="R1" & disease=="UC" ~ paste0(disease, as.numeric(str_remove(hash.ID, "hash"))-3),
       batch=="R2" & disease=="UC" ~ paste0(disease, as.numeric(str_remove(hash.ID, "hash"))+1)
     ))
-    #   unite("diseaseID", disease, batch, hash.ID, sep="_", remove=FALSE)%>%
-    # mutate(diseaseID=str_replace(diseaseID, pattern="hash", replacement=""))
-    
 
   seurat_obj$percent.mt <- PercentageFeatureSet(seurat_obj, pattern="^MT-")
   
@@ -124,19 +121,23 @@ rm(i, meta_function, all)
 ##-----------------------------------------------------------------------------
 p <- VlnPlot_scCustom(vd1, add.noise=F, pt.size=0,
                       features=c("nFeature_RNA", "nCount_RNA", "percent.mt"))&
-  theme(axis.title=element_blank())
+  theme(axis.title=element_blank(),
+        plot.margin=margin(5, 1, 0, 1)
+        )
 
 p[[1]] <- p[[1]]+geom_hline(yintercept=c(500, 3000), linetype="dashed", color="red")+
-  ggtitle("Number of Genes")
+  ggtitle("No. of\nGenes")
 p[[2]] <- p[[2]]+geom_hline(yintercept=c(10000), linetype="dashed", color="red")+
-  ggtitle("UMI counts")
+  ggtitle("UMI\ncounts")
 p[[3]] <- p[[3]]+geom_hline(yintercept=c(10), linetype="dashed", color="red")+
-  ggtitle("% Mitochondrial\nGenes")
+  ggtitle("% Mito.\nGenes")
 p
 
 # Save QC Plots 
 ggsave("../../2_figures_code/figures/10X_Vd1_VlnPlots_QC.pdf", width=6.5, height=3.5)
 ggsave("../../2_figures_code/figures/10X_Vd1_VlnPlots_QC.png", dpi=600, width=6.5, height=3.5)
+
+saveRDS(p, "../../data_processed/10X/Vd1_QC_plots.Rds")
 
 rm(p)
 
@@ -251,20 +252,23 @@ rm(i, combined, contig, trgv)
 ##-----------------------------------------------------------------------------
 p <- VlnPlot_scCustom(vd2, add.noise=F, pt.size=0,
                       features=c("nFeature_RNA", "nCount_RNA", "percent.mt"))&
-  theme(axis.title=element_blank())
+  theme(axis.title=element_blank(),
+        plot.margin=margin(5, 1, 0, 1)
+        )
 
 p[[1]] <- p[[1]]+geom_hline(yintercept=c(200, 3000), linetype="dashed", color="red")+
-  ggtitle("Number of Genes")
+  ggtitle("No. of\nGenes")
 p[[2]] <- p[[2]]+geom_hline(yintercept=c(10000), linetype="dashed", color="red")+
-  ggtitle("UMI counts")
+  ggtitle("UMI\ncounts")
 p[[3]] <- p[[3]]+geom_hline(yintercept=c(15), linetype="dashed", color="red")+
-  ggtitle("% Mitochondrial\nGenes")
+  ggtitle("% Mito.\nGenes")
 p
 
 # Save QC Plots 
 ggsave("../../2_figures_code/figures/10X_Vd2_VlnPlots_QC.pdf", width=6.5, height=3.5)
 ggsave("../../2_figures_code/figures/10X_Vd2_VlnPlots_QC.png", dpi=600, width=6.5, height=3.5)
 
+saveRDS(p, "../../data_processed/10X/Vd2_QC_plots.Rds")
 rm(p)
 
 
@@ -379,11 +383,11 @@ rm(i, combined, contig, trgv)
 
 # Saving Objects
 ##-----------------------------------------------------------------------------
-vd1$cluster <- paste0("C", vd1$seurat_clusters)
-vd2$cluster <- paste0("C", vd2$seurat_clusters)
-
-saveRDS(vd1, "../../data_processed/10X/Vd1.Rds")
-saveRDS(vd2, "../../data_processed/10X/Vd2.Rds")
+# vd1$cluster <- paste0("C", vd1$seurat_clusters)
+# vd2$cluster <- paste0("C", vd2$seurat_clusters)
+# 
+# saveRDS(vd1, "../../data_processed/10X/Vd1.Rds")
+# saveRDS(vd2, "../../data_processed/10X/Vd2.Rds")
 
 
 # Session Info

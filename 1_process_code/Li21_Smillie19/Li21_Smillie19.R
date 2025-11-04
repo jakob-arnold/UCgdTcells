@@ -483,7 +483,6 @@ entero <- subset(ep, subset = seurat_clusters %in% c(
 summary(as.factor(entero@meta.data$diseaseID))
 
 
-
 ##-----------------------------------------------------------------------------
 # Downsampling
 entero <- SetIdent(entero, value="diseaseID")

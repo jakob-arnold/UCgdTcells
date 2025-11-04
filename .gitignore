@@ -59,8 +59,10 @@ meta.data.txt
 **/genesets/
 *.fcs
 data_processed/
+data_processed/Li21_Smillie19_Integrated
 data_raw/
 *.sh
+2_figures_code/figures
 
 
 
