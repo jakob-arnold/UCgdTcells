@@ -616,7 +616,7 @@ ggsave("../figures/Fig3.pdf",
        bg="white")
 
 
-# Figure 5
+# Figure 4
 ## A-D
 ##-----------------------------------------------------------------------------
 # a
@@ -957,7 +957,7 @@ ggarrange(abcd, efgh, ijklm,
           ncol=1, nrow=3,
           heights=c(2.4, 1.8, 1.75))
 
-ggsave("../figures/Fig5.pdf",
+ggsave("../figures/Fig4.pdf",
        width=7.3,
        height=5.8,
        bg="white"
@@ -1239,7 +1239,7 @@ ggsave("../figures/FigS3.pdf",
        )
 
 
-## Fig S5
+## Fig S4
 ##-----------------------------------------------------------------------------
 ab <- FeaturePlot_scCustom(gd,
                      features=c("TCF7", "PDCD1"),
@@ -1273,7 +1273,7 @@ ggarrange(ab[[1]], ab[[2]],
           legend="right"
           )
 
-ggsave("../figures/FigS5.pdf",
+ggsave("../figures/FigS4.pdf",
        width=3,
        height=1.5,
        bg="white")

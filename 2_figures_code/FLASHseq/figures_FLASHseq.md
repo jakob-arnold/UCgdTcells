@@ -635,7 +635,7 @@ ggsave("../figures/Fig3.pdf",
        bg="white")
 ```
 
-# Figure 5
+# Figure 4
 
 ## A-D
 
@@ -985,7 +985,7 @@ ggarrange(abcd, efgh, ijklm,
 ![](figures_FLASHseq_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
 
 ``` r
-ggsave("../figures/Fig5.pdf",
+ggsave("../figures/Fig4.pdf",
        width=7.3,
        height=5.8,
        bg="white"
@@ -1283,7 +1283,7 @@ ggsave("../figures/FigS3.pdf",
        )
 ```
 
-## Fig S5
+## Fig S4
 
 ``` r
 ab <- FeaturePlot_scCustom(gd,
@@ -1322,7 +1322,7 @@ ggarrange(ab[[1]], ab[[2]],
 ![](figures_FLASHseq_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
 
 ``` r
-ggsave("../figures/FigS5.pdf",
+ggsave("../figures/FigS4.pdf",
        width=3,
        height=1.5,
        bg="white")
