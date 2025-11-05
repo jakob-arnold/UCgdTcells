@@ -517,7 +517,7 @@ for (score in names(scoring_list)){
 rm(list=setdiff(ls(), c("gd")))
 ```
 
-# Genesets for Fig 5d+e
+# Genesets for Fig 7 I-K
 
 ``` r
 Idents(gd) <- "TRGV_TRDV"
