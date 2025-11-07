@@ -84,13 +84,9 @@ gd_plots <- gd_plots&
   stat_compare_means(
     method="t.test",
     paired=T,
-    aes(label=ifelse(
-      ..p.. < 0.001,
-      "p<0.001",
-      paste0("p=", ..p.format..))),
-    label.x=1.25,
-    vjust=-1,
-    size=2.12
+    label.x=1.5,
+    size=2.82,
+    label="p.signif"
   )
 ```
 
@@ -141,20 +137,17 @@ entero_plots <- entero_plots&
   stat_compare_means(
     method="t.test",
     paired=T,
-    aes(label=ifelse(
-      ..p.. < 0.001,
-      "p<0.001",
-      paste0("p=", ..p.format..))),
-    label.x=1.25,
-    vjust=-1,
-    size=2.12
+    label.x=1.5,
+    size=2.82,
+    label="p.signif"
   )
 ```
 
 ``` r
 hijklm <- ggarrange(NULL, gd_plots[[1]], gd_plots[[2]], gd_plots[[3]], entero_plots[[6]], entero_plots[[7]],
                     labels=c("H", "I", "J", "K", "L", "M"),
-                    font.label=list(size=9, face="bold", family="sans")
+                    font.label=list(size=9, face="bold", family="sans"),
+                    align="v"
                     )
 ```
 

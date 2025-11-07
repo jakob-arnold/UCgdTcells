@@ -244,7 +244,8 @@ for (i in seq_along(defg)){
 
 defg <- ggarrange(defg[[1]], defg[[2]], defg[[3]], defg[[4]],
                   ncol=1, nrow=4, font.label=list(size=9, face="bold", family="sans"),
-                  labels=c("D", "E", "F", "G")
+                  labels=c("D", "E", "F", "G"),
+                  align="v"
                   )
 ```
 
@@ -334,27 +335,29 @@ jklmo <- VlnPlot_scCustom(entero_pb,
         plot.title=element_text(face="italic", size=6),
         text=element_text(size=6),
         axis.text=element_text(size=6)
-        )
+        )&
+  stat_compare_means(method="t.test", label.x=1.5, bracket.size=0, size=2.82, label="p.signif")
 
 for (i in seq_along(jklmo)){
   jklmo[[i]][["layers"]][[1]][["stat_params"]][["trim"]] <- FALSE
 }
 
-test <-   function(pos=NULL){
-  stat_compare_means(bracket.size=0, method = "t.test", label.y=pos, size=2.12,
-  aes(label = ifelse(..p.. < 0.0001, "p<0.0001", paste0("p=", ..p.format..)))
-                    )
-                        }
-jklmo[[1]]<-jklmo[[1]]+test(1.7)
-jklmo[[2]]<-jklmo[[2]]+test(1.7)
-jklmo[[3]]<-jklmo[[3]]+test(0.4)
-jklmo[[4]]<-jklmo[[4]]+test(2)
-jklmo[[5]]<-jklmo[[5]]+test(2)
-jklmo[[6]]<-jklmo[[6]]+test(0.6)
+# test <-   function(pos=NULL){
+#   stat_compare_means(bracket.size=0, method = "t.test", label.y=pos, size=2.12,
+#   aes(label = ifelse(..p.. < 0.0001, "p<0.0001", paste0("p=", ..p.format..)))
+#                     )
+#                         }
+# jklmo[[1]]<-jklmo[[1]]+test(1.7)
+# jklmo[[2]]<-jklmo[[2]]+test(1.7)
+# jklmo[[3]]<-jklmo[[3]]+test(0.4)
+# jklmo[[4]]<-jklmo[[4]]+test(2)
+# jklmo[[5]]<-jklmo[[5]]+test(2)
+# jklmo[[6]]<-jklmo[[6]]+test(0.6)
 
 jklmo <- ggarrange(jklmo[[1]], jklmo[[2]], jklmo[[3]], jklmo[[4]], jklmo[[5]], jklmo[[6]],
                    ncol=3, nrow=2, font.label=list(size=9, family="sans", face="bold"),
-                   labels=c("J", "L", "N", "K", "M", "O")
+                   labels=c("J", "L", "N", "K", "M", "O"),
+                   align="v"
                    )
 ```
 
