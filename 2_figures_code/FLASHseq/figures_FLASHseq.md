@@ -173,11 +173,11 @@ for (i in seq_along(p)){
   p[[i]][["layers"]][[1]][["stat_params"]][["trim"]] <- F
 }
 
-e <- p[[1]]+ggtitle(label="Cytotoxicity and Cytokine Production Signature",
-               subtitle="Szabo et al., 2019")
-
-f <- p[[2]]+ggtitle(label="Tissue Residency Signature",
+e <- p[[2]]+ggtitle(label="Tissue Residency Signature",
                subtitle="Kumar et al., 2017")
+
+f <- p[[1]]+ggtitle(label="Cytotoxicity and Cytokine Production Signature",
+               subtitle="Szabo et al., 2019")
 ```
 
 ## G
