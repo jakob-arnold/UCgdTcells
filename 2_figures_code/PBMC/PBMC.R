@@ -80,8 +80,6 @@ abc <- ggarrange(NULL, b, c,
                  align="h"
                  )
 
-abc
-
 ## A-K
 ##-----------------------------------------------------------------------------
 def <- ggarrange(NULL, NULL, NULL,

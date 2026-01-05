@@ -79,11 +79,9 @@ abc <- ggarrange(NULL, b, c,
                  labels=c("A", "B", "C"),
                  align="h"
                  )
-
-abc
 ```
 
-![](PBMC_files/figure-gfm/unnamed-chunk-4-1.png)<!-- --> \## A-K
+## A-K
 
 ``` r
 def <- ggarrange(NULL, NULL, NULL,
