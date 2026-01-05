@@ -103,7 +103,7 @@ genes <- c( "ITGAE","ITGA1","CD160","GZMA","ID3","KIT","IRF8","GZMK","CD5",
 c1 <- DotPlot(gd,
               group.by="cluster",
               features=genes,
-              dot.scale=3.25
+              dot.scale=3.15
               )+
   scale_color_gradient2(low="navy", mid="beige", high="red3", midpoint=0)+
   guides(color=guide_colorbar(frame.colour="black",
@@ -146,7 +146,7 @@ genes <- c("SELL", "S1PR1", "EOMES", "IFNG", "TNF", "CCR7", "PDCD1", "IL7R", "TC
 c2_1 <- DotPlot(gd,
               group.by="cluster",
               features=genes,
-              dot.scale=3.75
+              dot.scale=3.5
               )+
   scale_color_gradient2(low="navy", mid="beige", high="red3", midpoint=0)+
   guides(color=guide_colorbar(frame.colour="black",
@@ -290,9 +290,11 @@ I <- ggplot()+
   guides(color=guide_legend(override.aes=list(size = 2), reverse=T))+
   theme(axis.text=element_text(color="black", size=6),
         text=element_text(size=6),
-        legend.position = c(0.85, 0.85),
+        legend.position = c(0.85, 0.91),
         legend.key.spacing.y=unit(-2, "mm"),
-        legend.text=element_text(size=6)
+        legend.text=element_text(size=6),
+        legend.box.background=element_blank(),
+        legend.background=element_blank()
         )+
   
   ggrepel::geom_label_repel(data=UC_markers%>%filter(gene %in% genes_up), 
@@ -414,7 +416,8 @@ r <- gseaplot(gsea,
   theme(plot.title=element_text(size=6),
         text=element_text(size=6),
         axis.ticks=element_line(color="black"),
-        axis.text=element_text(color="black")
+        axis.text=element_text(color="black"),
+        panel.grid=element_blank()
         )
 
 r[["layers"]][[1]][["geom"]][["default_aes"]][["linewidth"]] <- .25
@@ -438,7 +441,8 @@ s <- gseaplot(gsea,
   theme(plot.title=element_text(size=6),
         text=element_text(size=6),
         axis.ticks=element_line(color="black"),
-        axis.text=element_text(color="black")
+        axis.text=element_text(color="black"),
+        panel.grid=element_blank()
         )
 
 s[["layers"]][[1]][["geom"]][["default_aes"]][["linewidth"]] <- .25
@@ -464,8 +468,8 @@ ggarrange(abcdefgh, ijklmo, pqrs,
           )
 
 ggsave("../figures/Fig6.pdf",
-       width=7.3,
-       height=9
+       width=7.25,
+       height=7.8
        )
 
 

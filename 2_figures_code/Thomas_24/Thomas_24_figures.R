@@ -28,13 +28,13 @@ abc <- ggarrange(NULL, NULL, NULL,
                  font.label=list(size=9, face="bold", family="sans")
                  )
 
-defg <- ggarrange(NULL, NULL, NULL, NULL,
-                  ncol=4, nrow=1,
-                  labels=c("D", "E", "F", "G"),
+defgh <- ggarrange(NULL, NULL, NULL, NULL, NULL,
+                  ncol=5, nrow=1,
+                  labels=c("D", "E", "F", "G", "H"),
                   font.label=list(size=9, face="bold", family="sans")
                  )
 
-abcdefg <- ggarrange(abc, defg,
+abcdefgh <- ggarrange(abc, defgh,
                      ncol=1, nrow=2
                      )
 
@@ -65,7 +65,8 @@ for (i in seq_along(gd_plots)){
   gd_plots[[i]][["data"]] <- gd_plots[[i]][["data"]]%>%
     rownames_to_column("id")%>%
     separate(id, into=c("rem", "tp", "patient"), sep="_")%>%
-    mutate(rem=factor(rem, levels=c("Remission", "Non-Remission")),
+    mutate(rem=case_when(rem=="Remission" ~ "R", .default="NR"),
+           rem=factor(rem, levels=c("R", "NR")),
            ident=factor(ident, levels=c("Pre", "Post"))
            )
   
@@ -122,7 +123,8 @@ for (i in seq_along(entero_plots)){
   entero_plots[[i]][["data"]] <- entero_plots[[i]][["data"]]%>%
     rownames_to_column("id")%>%
     separate(id, into=c("rem", "tp", "patient"), sep="_")%>%
-    mutate(rem=factor(rem, levels=c("Remission", "Non-Remission")),
+    mutate(rem=case_when(rem=="Remission" ~ "R", .default="NR"),
+           rem=factor(rem, levels=c("R", "NR")),
            ident=factor(ident, levels=c("Pre", "Post"))
            )
   
@@ -146,21 +148,23 @@ entero_plots <- entero_plots&
 
 
 ##-----------------------------------------------------------------------------
-hijklm <- ggarrange(NULL, gd_plots[[1]], gd_plots[[2]], gd_plots[[3]], entero_plots[[6]], entero_plots[[7]],
-                    labels=c("H", "I", "J", "K", "L", "M"),
-                    font.label=list(size=9, face="bold", family="sans"),
-                    align="v"
+ijklm <- ggarrange(gd_plots[[1]], gd_plots[[2]], gd_plots[[3]], entero_plots[[6]], entero_plots[[7]],
+                   labels=c("I", "J", "K", "L", "M"),
+                   font.label=list(size=9, face="bold", family="sans"),
+                   align="hv",
+                   ncol=5, nrow=1
                     )
 
 
 ##-----------------------------------------------------------------------------
-ggarrange(abcdefg, hijklm,
-          ncol=1, nrow=2
+ggarrange(abcdefgh, ijklm,
+          ncol=1, nrow=2,
+          heights=c(5.8, 2.1)
           )
 
 ggsave("../figures/Fig7.pdf",
-       width=7.3,
-       height=9
+       width=7.25,
+       height=6.162
        )
 
 

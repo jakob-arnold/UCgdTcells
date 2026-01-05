@@ -106,7 +106,7 @@ genes <- c( "ITGAE","ITGA1","CD160","GZMA","ID3","KIT","IRF8","GZMK","CD5",
 c1 <- DotPlot(gd,
               group.by="cluster",
               features=genes,
-              dot.scale=3.25
+              dot.scale=3.15
               )+
   scale_color_gradient2(low="navy", mid="beige", high="red3", midpoint=0)+
   guides(color=guide_colorbar(frame.colour="black",
@@ -149,7 +149,7 @@ genes <- c("SELL", "S1PR1", "EOMES", "IFNG", "TNF", "CCR7", "PDCD1", "IL7R", "TC
 c2_1 <- DotPlot(gd,
               group.by="cluster",
               features=genes,
-              dot.scale=3.75
+              dot.scale=3.5
               )+
   scale_color_gradient2(low="navy", mid="beige", high="red3", midpoint=0)+
   guides(color=guide_colorbar(frame.colour="black",
@@ -298,9 +298,11 @@ I <- ggplot()+
   guides(color=guide_legend(override.aes=list(size = 2), reverse=T))+
   theme(axis.text=element_text(color="black", size=6),
         text=element_text(size=6),
-        legend.position = c(0.85, 0.85),
+        legend.position = c(0.85, 0.91),
         legend.key.spacing.y=unit(-2, "mm"),
-        legend.text=element_text(size=6)
+        legend.text=element_text(size=6),
+        legend.box.background=element_blank(),
+        legend.background=element_blank()
         )+
   
   ggrepel::geom_label_repel(data=UC_markers%>%filter(gene %in% genes_up), 
@@ -341,18 +343,6 @@ jklmo <- VlnPlot_scCustom(entero_pb,
 for (i in seq_along(jklmo)){
   jklmo[[i]][["layers"]][[1]][["stat_params"]][["trim"]] <- FALSE
 }
-
-# test <-   function(pos=NULL){
-#   stat_compare_means(bracket.size=0, method = "t.test", label.y=pos, size=2.12,
-#   aes(label = ifelse(..p.. < 0.0001, "p<0.0001", paste0("p=", ..p.format..)))
-#                     )
-#                         }
-# jklmo[[1]]<-jklmo[[1]]+test(1.7)
-# jklmo[[2]]<-jklmo[[2]]+test(1.7)
-# jklmo[[3]]<-jklmo[[3]]+test(0.4)
-# jklmo[[4]]<-jklmo[[4]]+test(2)
-# jklmo[[5]]<-jklmo[[5]]+test(2)
-# jklmo[[6]]<-jklmo[[6]]+test(0.6)
 
 jklmo <- ggarrange(jklmo[[1]], jklmo[[2]], jklmo[[3]], jklmo[[4]], jklmo[[5]], jklmo[[6]],
                    ncol=3, nrow=2, font.label=list(size=9, family="sans", face="bold"),
@@ -439,7 +429,8 @@ r <- gseaplot(gsea,
   theme(plot.title=element_text(size=6),
         text=element_text(size=6),
         axis.ticks=element_line(color="black"),
-        axis.text=element_text(color="black")
+        axis.text=element_text(color="black"),
+        panel.grid=element_blank()
         )
 
 r[["layers"]][[1]][["geom"]][["default_aes"]][["linewidth"]] <- .25
@@ -463,7 +454,8 @@ s <- gseaplot(gsea,
   theme(plot.title=element_text(size=6),
         text=element_text(size=6),
         axis.ticks=element_line(color="black"),
-        axis.text=element_text(color="black")
+        axis.text=element_text(color="black"),
+        panel.grid=element_blank()
         )
 
 s[["layers"]][[1]][["geom"]][["default_aes"]][["linewidth"]] <- .25
@@ -495,8 +487,8 @@ ggarrange(abcdefgh, ijklmo, pqrs,
 
 ``` r
 ggsave("../figures/Fig6.pdf",
-       width=7.3,
-       height=9
+       width=7.25,
+       height=7.8
        )
 ```
 

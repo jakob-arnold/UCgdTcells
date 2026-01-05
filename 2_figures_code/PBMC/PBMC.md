@@ -63,24 +63,27 @@ c <- do_DimPlot(vd2,
            colors.use=pal_dis,
            pt.size=0.1,
            border.size=4,
-           legend.icon.size=2.12
+           legend.icon.size=2.12,
+           legend.nrow=1
            )+
   scale_color_manual(values=pal_dis, labels=names_dis)+
-  theme(legend.position=c(.25, 1),
+  theme(legend.position=c(.5, 1.1),
         text=element_text(size=6),
         legend.background=element_blank(),
-        legend.key.spacing.y=unit(-2, "mm"),
         legend.text=element_text(size=6)
         )
 
 abc <- ggarrange(NULL, b, c,
                  ncol=3, nrow=1, widths=c(2, 1, 1),
                  font.label=list(size=9, face="bold", family="sans"),
-                 labels=c("A", "B", "C")
+                 labels=c("A", "B", "C"),
+                 align="h"
                  )
+
+abc
 ```
 
-## A-K
+![](PBMC_files/figure-gfm/unnamed-chunk-4-1.png)<!-- --> \## A-K
 
 ``` r
 def <- ggarrange(NULL, NULL, NULL,
@@ -335,8 +338,8 @@ ggarrange(a_k, l_q,
 
 ``` r
 ggsave("../figures/Fig8.pdf",
-       width=7.3,
-       height=9
+       width=7.25,
+       height=7.8
        )
 ```
 

@@ -62,8 +62,8 @@ b <- do_DimPlot(gd,
                 pt.size=.25,
                 label.size=2.12
                 )+
-  theme(plot.margin=margin(l=10, b=10),
-        aspect.ratio=0.75
+  theme(plot.margin=margin(),
+        aspect.ratio=0.7
         )
 
 b[[1]][["layers"]][[3]][["aes_params"]][["alpha"]] <- 0.7
@@ -82,8 +82,8 @@ c <- do_DimPlot(gd,
         legend.background=element_blank(),
         text=element_text(size=6),
         legend.text=element_text(margin=margin(l=1), size=6),
-        plot.margin=margin(l=10, b=10),
-        aspect.ratio=0.75
+        plot.margin=margin(),
+        aspect.ratio=0.7
         )
 
 
@@ -171,11 +171,11 @@ for (i in seq_along(p)){
   p[[i]][["layers"]][[1]][["stat_params"]][["trim"]] <- F
 }
 
-e <- p[[1]]+ggtitle(label="Cytotoxicity and Cytokine Production Signature",
-               subtitle="Szabo et al., 2019")
-
-f <- p[[2]]+ggtitle(label="Tissue Residency Signature",
+e <- p[[2]]+ggtitle(label="Tissue Residency Signature",
                subtitle="Kumar et al., 2017")
+
+f <- p[[1]]+ggtitle(label="Cytotoxicity and Cytokine Production Signature",
+               subtitle="Szabo et al., 2019")
 
 
 ## G
@@ -183,23 +183,46 @@ f <- p[[2]]+ggtitle(label="Tissue Residency Signature",
 g <- do_DimPlot(gd,
                 group.by="celltype",
                 pt.size=.25,
-                legend.position="right",
-                label.size=2.12,
-                label.fill=NULL,
-                legend.ncol=1,
+                legend.ncol=4,
+                legend.byrow=F,
                 legend.icon.size=2.12
                 )+
-  scale_color_manual(values=pal_cell, labels=names_cell)+
-  theme(aspect.ratio=0.75,
-        legend.position=c(.9, .9),
+    scale_color_manual(values=pal_cell,
+                       labels=c("Memory-Like"="Memory-\nLike", "Cytotoxic"="Effector-\nLike")
+                     )+
+  theme(legend.position=c(.45, 1.05),
         legend.background=element_blank(),
         legend.key.height=unit(1, "mm"),
         legend.key.spacing.y=unit(1, "mm"),
-        legend.key.spacing.x=unit(1, "mm"),
+        legend.key.spacing.x=unit(.5, "mm"),
         text=element_text(size=6),
-        legend.text=element_text(margin=margin(l=1), size=6),
-        plot.margin=margin(10, 2, 2, 2)
+        legend.text=element_text(margin=margin(), size=6),
+        plot.margin=margin(),
+        aspect.ratio=.7
         )
+
+# h <- do_DimPlot(gd,
+#                 group.by="celltype",
+#                 pt.size=0.25,
+#                 font.size=24,
+#                 reduction="scenic_umap",
+#                 legend.icon.size=2.12,
+#                 legend.ncol=4,
+#                 legend.byrow=F
+#                 )+
+#   scale_color_manual(values=pal_cell,
+#                      labels=c("Memory-Like"="Memory-\nLike", "Cytotoxic"="Effector-\nLike")
+#                      )+
+#   theme(legend.position=c(.45, 1.05),
+#         legend.background=element_blank(),
+#         legend.key.height=unit(1, "mm"),
+#         legend.key.spacing.y=unit(1, "mm"),
+#         legend.key.spacing.x=unit(.5, "mm"),
+#         text=element_text(size=6),
+#         legend.text=element_text(margin=margin(), size=6),
+#         plot.margin=margin(),
+#         aspect.ratio=.7
+#         )
 
 ## HI
 ##-----------------------------------------------------------------------------
@@ -223,7 +246,8 @@ h <- do_DimPlot(gd,
         legend.key.spacing.x=unit(.5, "mm"),
         text=element_text(size=6),
         legend.text=element_text(margin=margin(), size=6),
-        plot.margin=margin(5, 5, 10, 10)
+        plot.margin=margin(),
+        aspect.ratio=.7
         )
 
 I <- do_DimPlot(gd,
@@ -242,7 +266,8 @@ I <- do_DimPlot(gd,
         legend.key.spacing.y=unit(0, "mm"),
         text=element_text(size=6),
         legend.text=element_text(margin=margin(l=1), size=6),
-        plot.margin=margin(5, 5, 10, 10)
+        plot.margin=margin(),
+        aspect.ratio=0.7
         )
 
 
@@ -330,8 +355,8 @@ bcdefghij <- ggarrange(bc, defghij, ncol=1, heights=c(1, 4))
 
 ggsave("../figures/Fig1.pdf",
        bcdefghij,
-       width=7.3,
-       height=9,
+       width=7.25,
+       height=7.8,
        bg="white"
        )
 
@@ -611,7 +636,7 @@ ggarrange(abcde, fghi,
           heights=c(1, 1))
 
 ggsave("../figures/Fig3.pdf",
-       width=7,
+       width=7.25,
        height=3.5,
        bg="white")
 
@@ -958,7 +983,7 @@ ggarrange(abcd, efgh, ijklm,
           heights=c(2.4, 1.8, 1.75))
 
 ggsave("../figures/Fig4.pdf",
-       width=7.3,
+       width=7.25,
        height=5.8,
        bg="white"
        )
